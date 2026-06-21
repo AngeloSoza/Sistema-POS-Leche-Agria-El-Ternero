@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -28,10 +29,18 @@ import com.lecheagriaelternero.viewmodel.MenuViewModel
 fun PantallaTomaOrden(navController: NavController, viewModel: MenuViewModel) {
     val menuReal by viewModel.menu.collectAsStateWithLifecycle()
     val carritoActual by viewModel.carritoActual.collectAsStateWithLifecycle()
+    val ordenes by viewModel.ordenesActivas.collectAsStateWithLifecycle()
+    val mesaSeleccionadaId by viewModel.mesaSeleccionadaId.collectAsStateWithLifecycle()
+
+    val ordenPrevia = ordenes.find { it.mesa?.id == mesaSeleccionadaId && it.estado != "PAGADO" }
 
     val categorias = listOf("Todos") + menuReal.map { it.categoria }.distinct()
     var categoriaSeleccionada by remember { mutableStateOf("Todos") }
     var productoACustomizar by remember { mutableStateOf<Producto?>(null) }
+    var mostrarResumenPrevio by remember { mutableStateOf(false) }
+    var mostrarEditorOrden by remember { mutableStateOf(false) }
+    var notasEdicion by remember { mutableStateOf("") }
+    var totalEdicion by remember { mutableStateOf("") }
 
     val productosMostrados = menuReal.filter { producto ->
         val coincideCategoria = categoriaSeleccionada == "Todos" || producto.categoria == categoriaSeleccionada
@@ -41,7 +50,20 @@ fun PantallaTomaOrden(navController: NavController, viewModel: MenuViewModel) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Tomar Orden") },
+                title = { 
+                    Column {
+                        Text("Tomar Orden", fontSize = 18.sp)
+                        if (ordenPrevia != null) {
+                            Text(
+                                "Mesa con pedido activo (C$ ${ordenPrevia.total})", 
+                                fontSize = 12.sp, 
+                                color = Color(0xFFD32F2F),
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clickable { mostrarResumenPrevio = true }
+                            )
+                        }
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
@@ -65,6 +87,26 @@ fun PantallaTomaOrden(navController: NavController, viewModel: MenuViewModel) {
         }
     ) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            // Banner informativo si hay orden previa
+            if (ordenPrevia != null) {
+                Surface(
+                    color = Color(0xFFFFF9C4),
+                    modifier = Modifier.fillMaxWidth().clickable { mostrarResumenPrevio = true }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            "⚠️ Esta mesa ya tiene un pedido en curso. Toca para ver detalles.",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+
             SecondaryScrollableTabRow(
                 selectedTabIndex = categorias.indexOf(categoriaSeleccionada),
                 edgePadding = 16.dp,
@@ -113,6 +155,69 @@ fun PantallaTomaOrden(navController: NavController, viewModel: MenuViewModel) {
             }
         )
     }
+
+    if (mostrarResumenPrevio && ordenPrevia != null) {
+        AlertDialog(
+            onDismissRequest = { mostrarResumenPrevio = false },
+            title = { Text("Pedido Actual - Mesa ${ordenPrevia.mesa?.numero ?: ""}") },
+            text = {
+                Column {
+                    Text("Consumo acumulado: C$ ${ordenPrevia.total}", fontWeight = FontWeight.Bold, color = Color(0xFF1B6D24))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(ordenPrevia.notas ?: "Sin notas", fontSize = 14.sp)
+                }
+            },
+            confirmButton = {
+                Button(onClick = { 
+                    notasEdicion = ordenPrevia.notas ?: ""
+                    totalEdicion = ordenPrevia.total.toString()
+                    mostrarEditorOrden = true
+                    mostrarResumenPrevio = false
+                }) {
+                    Text("Editar/Eliminar items")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostrarResumenPrevio = false }) { Text("Cerrar") }
+            }
+        )
+    }
+
+    if (mostrarEditorOrden && ordenPrevia != null) {
+        AlertDialog(
+            onDismissRequest = { mostrarEditorOrden = false },
+            title = { Text("Editar Orden Existente") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Puedes modificar las notas para eliminar o cambiar productos, y ajustar el total.", fontSize = 12.sp, color = Color.Gray)
+                    OutlinedTextField(
+                        value = notasEdicion,
+                        onValueChange = { notasEdicion = it },
+                        label = { Text("Detalle del Pedido") },
+                        modifier = Modifier.fillMaxWidth().height(150.dp)
+                    )
+                    OutlinedTextField(
+                        value = totalEdicion,
+                        onValueChange = { totalEdicion = it },
+                        label = { Text("Total de la Mesa (C$)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    val nuevoTotal = totalEdicion.toDoubleOrNull() ?: ordenPrevia.total
+                    viewModel.actualizarOrden(ordenPrevia.id, notasEdicion, nuevoTotal)
+                    mostrarEditorOrden = false
+                }) {
+                    Text("Guardar Cambios")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostrarEditorOrden = false }) { Text("Cancelar") }
+            }
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -123,78 +228,155 @@ fun DialogoPersonalizar(
     onDismiss: () -> Unit,
     onConfirm: (Producto) -> Unit
 ) {
-    var notas by remember { mutableStateOf("") }
-    var itemAQuitar by remember { mutableStateOf<Producto?>(null) }
-    var itemAAgregar by remember { mutableStateOf<Producto?>(null) }
-    var expandedQuitar by remember { mutableStateOf(false) }
-    var expandedAgregar by remember { mutableStateOf(false) }
+    var notasAdicionales by remember { mutableStateOf("") }
+    
+    // Identificar ingredientes del combo basados en la descripción
+    val ingredientesDisponibles = menuReal.filter { it.categoria != "Combos" }
+    
+    // Lógica para detectar qué extras están mencionados en la descripción del combo
+    val ingredientesCombo = remember(producto.descripcion, menuReal) {
+        val descLow = producto.descripcion.lowercase()
+            .replace("un ", "1 ")
+            .replace("uno ", "1 ")
+            .replace("dos ", "2 ")
+            .replace("tres ", "3 ")
+            .replace(".", "")
+            .replace(",", "")
+            .replace("(", "")
+            .replace(")", "")
+            .replace("  ", " ")
 
-    val opcionesExtras = menuReal.filter { it.precio < 60.0 && it.id != producto.id }
+        val matches = ingredientesDisponibles.filter { item ->
+            val itemNameLow = item.nombre.lowercase()
+                .replace(".", "")
+                .replace(",", "")
+                .replace("(", "")
+                .replace(")", "")
+                .replace("  ", " ")
+            
+            descLow.contains(itemNameLow) || 
+            (itemNameLow == "1 huevo entero" && descLow.contains("un huevo entero")) ||
+            (itemNameLow == "2 huevos enteros" && descLow.contains("dos huevos enteros")) ||
+            (itemNameLow == "café negro" && descLow.contains("café"))
+        }.sortedByDescending { it.nombre.length }
 
-    val precioQuitar = itemAQuitar?.precio ?: 0.0
-    val precioAgregar = itemAAgregar?.precio ?: 0.0
-    val precioFinal = producto.precio - precioQuitar + precioAgregar
+        val finalIngredientes = mutableListOf<Producto>()
+        for (match in matches) {
+            val matchNameLow = match.nombre.lowercase()
+                .replace(".", "").replace(",", "").replace("(", "").replace(")", "")
+            
+            val alreadyCovered = finalIngredientes.any { 
+                it.nombre.lowercase()
+                    .replace(".", "").replace(",", "").replace("(", "").replace(")", "")
+                    .contains(matchNameLow)
+            }
+            if (!alreadyCovered) {
+                finalIngredientes.add(match)
+            }
+        }
+        finalIngredientes.sortedBy { it.nombre }
+    }
+
+    val ingredientesSeleccionados = remember { 
+        mutableStateListOf<Producto>().apply { addAll(ingredientesCombo) } 
+    }
+    
+    var extraAnadido by remember { mutableStateOf<Producto?>(null) }
+    var expandedExtra by remember { mutableStateOf(false) }
+
+    // Cálculo dinámico de precio
+    val costoIngredientesOmitidos = ingredientesCombo.filter { it !in ingredientesSeleccionados }.sumOf { it.precio }
+    val costoExtra = extraAnadido?.precio ?: 0.0
+    val precioFinal = (producto.precio - costoIngredientesOmitidos + costoExtra).coerceAtLeast(0.0)
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Configurar: ${producto.nombre}", fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Precio Base: C$ ${producto.precio}", fontWeight = FontWeight.Medium)
 
-                ExposedDropdownMenuBox(expanded = expandedQuitar, onExpandedChange = { expandedQuitar = !expandedQuitar }) {
-                    OutlinedTextField(
-                        value = itemAQuitar?.nombre ?: "Sin cambios",
-                        onValueChange = {}, readOnly = true,
-                        label = { Text("Quitar ingrediente (- precio)") },
-                        modifier = Modifier.fillMaxWidth().menuAnchor(),
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedQuitar) }
-                    )
-                    ExposedDropdownMenu(expanded = expandedQuitar, onDismissRequest = { expandedQuitar = false }) {
-                        DropdownMenuItem(text = { Text("Ninguno") }, onClick = { itemAQuitar = null; expandedQuitar = false })
-                        opcionesExtras.forEach { p ->
-                            DropdownMenuItem(
-                                text = { Text("${p.nombre} (-C$${p.precio})") },
-                                onClick = { itemAQuitar = p; expandedQuitar = false }
-                            )
+                if (ingredientesCombo.isNotEmpty()) {
+                    Text("Ingredientes Incluidos (Desmarca para quitar):", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Column {
+                        ingredientesCombo.forEach { ingrediente ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth().clickable {
+                                    if (ingredientesSeleccionados.contains(ingrediente)) {
+                                        ingredientesSeleccionados.remove(ingrediente)
+                                    } else {
+                                        ingredientesSeleccionados.add(ingrediente)
+                                    }
+                                }
+                            ) {
+                                Checkbox(
+                                    checked = ingredientesSeleccionados.contains(ingrediente),
+                                    onCheckedChange = null // Manejado por el Row clickable
+                                )
+                                Text("${ingrediente.nombre} (-C$ ${ingrediente.precio})", fontSize = 14.sp)
+                            }
                         }
                     }
                 }
 
-                ExposedDropdownMenuBox(expanded = expandedAgregar, onExpandedChange = { expandedAgregar = !expandedAgregar }) {
+                HorizontalDivider()
+
+                Text("Añadir Extra:", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                ExposedDropdownMenuBox(expanded = expandedExtra, onExpandedChange = { expandedExtra = !expandedExtra }) {
                     OutlinedTextField(
-                        value = itemAAgregar?.nombre ?: "Sin extra",
+                        value = extraAnadido?.nombre ?: "Sin extra",
                         onValueChange = {}, readOnly = true,
-                        label = { Text("Agregar extra (+ precio)") },
+                        label = { Text("Seleccionar Extra (+ precio)") },
                         modifier = Modifier.fillMaxWidth().menuAnchor(),
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedAgregar) }
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedExtra) }
                     )
-                    ExposedDropdownMenu(expanded = expandedAgregar, onDismissRequest = { expandedAgregar = false }) {
-                        DropdownMenuItem(text = { Text("Ninguno") }, onClick = { itemAAgregar = null; expandedAgregar = false })
-                        opcionesExtras.forEach { p ->
+                    ExposedDropdownMenu(expanded = expandedExtra, onDismissRequest = { expandedExtra = false }) {
+                        DropdownMenuItem(text = { Text("Ninguno") }, onClick = { extraAnadido = null; expandedExtra = false })
+                        ingredientesDisponibles.forEach { p ->
                             DropdownMenuItem(
-                                text = { Text("${p.nombre} (+C$${p.precio})") },
-                                onClick = { itemAAgregar = p; expandedAgregar = false }
+                                text = { Text("${p.nombre} (+C$ ${p.precio})") },
+                                onClick = { extraAnadido = p; expandedExtra = false }
                             )
                         }
                     }
                 }
 
                 OutlinedTextField(
-                    value = notas, onValueChange = { notas = it },
+                    value = notasAdicionales, onValueChange = { notasAdicionales = it },
                     label = { Text("Especificaciones adicionales") }, modifier = Modifier.fillMaxWidth()
                 )
 
-                Text("Total Recalculado: C$ $precioFinal", fontWeight = FontWeight.Black, color = Color(0xFF1B6D24), fontSize = 18.sp)
+                Surface(
+                    color = Color(0xFFE8F5E9),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Total Recalculado: C$ $precioFinal", 
+                        fontWeight = FontWeight.Black, 
+                        color = Color(0xFF1B6D24), 
+                        fontSize = 18.sp,
+                        modifier = Modifier.padding(12.dp),
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
                     val notaFinal = buildString {
-                        if (itemAQuitar != null) append("Sin ${itemAQuitar!!.nombre}. ")
-                        if (itemAAgregar != null) append("Cambio por ${itemAAgregar!!.nombre}. ")
-                        if (notas.isNotBlank()) append(notas)
+                        val omitidos = ingredientesCombo.filter { it !in ingredientesSeleccionados }
+                        if (omitidos.isNotEmpty()) {
+                            append("SIN: ${omitidos.joinToString(", ") { it.nombre }}. ")
+                        }
+                        if (extraAnadido != null) {
+                            append("EXTRA: ${extraAnadido!!.nombre}. ")
+                        }
+                        if (notasAdicionales.isNotBlank()) {
+                            append(notasAdicionales)
+                        }
                     }
                     val productoModificado = producto.copy(
                         id = java.util.UUID.randomUUID().toString(),

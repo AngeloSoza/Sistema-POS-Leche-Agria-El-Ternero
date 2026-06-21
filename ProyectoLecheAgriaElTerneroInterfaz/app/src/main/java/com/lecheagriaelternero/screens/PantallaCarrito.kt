@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,6 +33,11 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
                         // Ícono de flecha actualizado para evitar la advertencia
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
+                },
+                actions = {
+                    IconButton(onClick = { viewModel.vaciarCarrito() }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Vaciar", tint = Color.Red)
+                    }
                 }
             )
         }
@@ -48,20 +54,25 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
                         Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = producto.nombre,
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 16.sp,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Text(
-                                    text = "C$ ${producto.precio}",
-                                    color = Color(0xFF1B6D24),
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp
-                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = producto.nombre,
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 16.sp
+                                    )
+                                    Text(
+                                        text = "C$ ${producto.precio}",
+                                        color = Color(0xFF1B6D24),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp
+                                    )
+                                }
+                                IconButton(onClick = { viewModel.eliminarDelCarrito(producto) }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color.Red)
+                                }
                             }
 
                             if (producto.descripcion.isNotBlank()) {
