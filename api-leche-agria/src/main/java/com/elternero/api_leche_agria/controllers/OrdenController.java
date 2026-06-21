@@ -22,56 +22,14 @@ public class OrdenController {
     @GetMapping
     public List<Orden> obtenerTodasLasOrdenes() {
         return ordenRepository.findAll();
-        @PatchMapping("/{id}")
-    public Orden actualizarOrden(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
-        Orden orden = ordenRepository.findById(id).orElseThrow();
-        
-        if (payload.containsKey("notas")) {
-            orden.setNotas((String) payload.get("notas"));
-        }
-        if (payload.containsKey("total")) {
-            // Manejar diferentes tipos numéricos posibles desde JSON
-            Number total = (Number) payload.get("total");
-            orden.setTotal(total.doubleValue());
-        }
-        // Al editar manualmente, la dejamos en PENDIENTE por si acaso
-        orden.setEstado("PENDIENTE");
-        
-        Mesa mesa = orden.getMesa();
-        mesa.setTotal(orden.total);
-        mesaRepository.save(mesa);
-        
-        return ordenRepository.save(orden);
     }
-}
 
     @GetMapping("/estado/{estado}")
     public List<Orden> obtenerOrdenesPorEstado(@PathVariable String estado) {
         return ordenRepository.findAll().stream()
                 .filter(o -> o.getEstado().equalsIgnoreCase(estado))
                 .toList();
-        @PatchMapping("/{id}")
-    public Orden actualizarOrden(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
-        Orden orden = ordenRepository.findById(id).orElseThrow();
-        
-        if (payload.containsKey("notas")) {
-            orden.setNotas((String) payload.get("notas"));
-        }
-        if (payload.containsKey("total")) {
-            // Manejar diferentes tipos numéricos posibles desde JSON
-            Number total = (Number) payload.get("total");
-            orden.setTotal(total.doubleValue());
-        }
-        // Al editar manualmente, la dejamos en PENDIENTE por si acaso
-        orden.setEstado("PENDIENTE");
-        
-        Mesa mesa = orden.getMesa();
-        mesa.setTotal(orden.total);
-        mesaRepository.save(mesa);
-        
-        return ordenRepository.save(orden);
     }
-}
 
     @PatchMapping("/{id}/estado")
     public Orden actualizarEstado(@PathVariable Long id, @RequestBody Map<String, String> body) {
@@ -84,145 +42,68 @@ public class OrdenController {
             mesa.setEstado("LIBRE");
             mesa.setTotal(0.0);
             mesaRepository.save(mesa);
-            @PatchMapping("/{id}")
-    public Orden actualizarOrden(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
-        Orden orden = ordenRepository.findById(id).orElseThrow();
-        
-        if (payload.containsKey("notas")) {
-            orden.setNotas((String) payload.get("notas"));
         }
-        if (payload.containsKey("total")) {
-            // Manejar diferentes tipos numéricos posibles desde JSON
-            Number total = (Number) payload.get("total");
-            orden.setTotal(total.doubleValue());
-        }
-        // Al editar manualmente, la dejamos en PENDIENTE por si acaso
-        orden.setEstado("PENDIENTE");
-        
-        Mesa mesa = orden.getMesa();
-        mesa.setTotal(orden.total);
-        mesaRepository.save(mesa);
-        
-        return ordenRepository.save(orden);
-    }
-}
 
         return ordenRepository.save(orden);
-        @PatchMapping("/{id}")
-    public Orden actualizarOrden(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
-        Orden orden = ordenRepository.findById(id).orElseThrow();
-        
-        if (payload.containsKey("notas")) {
-            orden.setNotas((String) payload.get("notas"));
-        }
-        if (payload.containsKey("total")) {
-            // Manejar diferentes tipos numéricos posibles desde JSON
-            Number total = (Number) payload.get("total");
-            orden.setTotal(total.doubleValue());
-        }
-        // Al editar manualmente, la dejamos en PENDIENTE por si acaso
-        orden.setEstado("PENDIENTE");
-        
-        Mesa mesa = orden.getMesa();
-        mesa.setTotal(orden.total);
-        mesaRepository.save(mesa);
-        
-        return ordenRepository.save(orden);
     }
-}
 
-    @PostMapping("/{mesaId}")
-    public Orden crearOActualizarOrden(@PathVariable Long mesaId, @RequestBody Map<String, Object> payload) {
+    // RUTA ULTRA-SIMPLIFICADA PARA EVITAR 404
+    @PostMapping("/enviar/{mesaId}")
+    public Orden enviarPedido(@PathVariable("mesaId") Long mesaId, @RequestBody Map<String, Object> payload) {
         Mesa mesa = mesaRepository.findById(mesaId).orElseThrow();
+        // ... (resto de la lógica igual)
 
+        // Buscamos orden activa para esta mesa
         Orden orden = ordenRepository.findAll().stream()
                 .filter(o -> o.getMesa().getId().equals(mesaId) && !"PAGADO".equals(o.getEstado()))
                 .findFirst()
                 .orElse(new Orden());
 
         orden.setMesa(mesa);
-
         String notasNuevas = (String) payload.get("notas");
+        
         if (orden.getId() != null) {
-            // Si la orden ya existe, concatenamos las notas con un separador visual
-            orden.setNotas(orden.getNotas() + "\n--- ACTUALIZACIÓN ---\n" + notasNuevas);
-            // IMPORTANTE: Volvemos a poner la orden en PENDIENTE para que cocina la vea
-            orden.setEstado("PENDIENTE");
+            // SI YA EXISTE UNA ORDEN: Marcamos lo que ya estaba como entregado visualmente
+            String historial = orden.getNotas();
+            // Limpiamos marcas de "NUEVO" previas del historial si existen
+            historial = historial.replace("⭐ [NUEVO] ", "✅ [ENTREGADO] ");
+            
+            // Añadimos lo nuevo con una marca especial
+            String nuevasConMarca = notasNuevas.replace("- ", "⭐ [NUEVO] - ");
+            orden.setNotas(historial + "\n\n--- ADICIÓN SOLICITADA ---\n" + nuevasConMarca);
         } else {
-            orden.setNotas(notasNuevas);
-            orden.setEstado("PENDIENTE");
-            @PatchMapping("/{id}")
-    public Orden actualizarOrden(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
-        Orden orden = ordenRepository.findById(id).orElseThrow();
-        
-        if (payload.containsKey("notas")) {
-            orden.setNotas((String) payload.get("notas"));
+            // SI ES NUEVA: Marcamos todo como nuevo
+            orden.setNotas(notasNuevas.replace("- ", "⭐ [NUEVO] - "));
         }
-        if (payload.containsKey("total")) {
-            // Manejar diferentes tipos numéricos posibles desde JSON
-            Number total = (Number) payload.get("total");
-            orden.setTotal(total.doubleValue());
-        }
-        // Al editar manualmente, la dejamos en PENDIENTE por si acaso
-        orden.setEstado("PENDIENTE");
-        
-        Mesa mesa = orden.getMesa();
-        mesa.setTotal(orden.total);
-        mesaRepository.save(mesa);
-        
-        return ordenRepository.save(orden);
-    }
-}
 
-        Double totalNuevo = (Double) payload.get("total");
-        orden.setTotal((orden.getTotal() != null ? orden.getTotal() : 0.0) + totalNuevo);
+        orden.setEstado("PENDIENTE");
+
+        Object totalNuevoObj = payload.get("total");
+        Double totalAdicional = 0.0;
+        if (totalNuevoObj instanceof Number) {
+            totalAdicional = ((Number) totalNuevoObj).doubleValue();
+        }
+        orden.setTotal((orden.getTotal() != null ? orden.getTotal() : 0.0) + totalAdicional);
 
         mesa.setEstado("OCUPADA");
         mesa.setTotal(orden.getTotal());
         mesaRepository.save(mesa);
 
         return ordenRepository.save(orden);
-        @PatchMapping("/{id}")
-    public Orden actualizarOrden(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
-        Orden orden = ordenRepository.findById(id).orElseThrow();
-        
-        if (payload.containsKey("notas")) {
-            orden.setNotas((String) payload.get("notas"));
-        }
-        if (payload.containsKey("total")) {
-            // Manejar diferentes tipos numéricos posibles desde JSON
-            Number total = (Number) payload.get("total");
-            orden.setTotal(total.doubleValue());
-        }
-        // Al editar manualmente, la dejamos en PENDIENTE por si acaso
-        orden.setEstado("PENDIENTE");
-        
-        Mesa mesa = orden.getMesa();
-        mesa.setTotal(orden.total);
-        mesaRepository.save(mesa);
-        
-        return ordenRepository.save(orden);
     }
-}
-    @PatchMapping("/{id}")
-    public Orden actualizarOrden(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
-        Orden orden = ordenRepository.findById(id).orElseThrow();
-        
-        if (payload.containsKey("notas")) {
-            orden.setNotas((String) payload.get("notas"));
-        }
-        if (payload.containsKey("total")) {
-            // Manejar diferentes tipos numéricos posibles desde JSON
-            Number total = (Number) payload.get("total");
-            orden.setTotal(total.doubleValue());
-        }
-        // Al editar manualmente, la dejamos en PENDIENTE por si acaso
-        orden.setEstado("PENDIENTE");
-        
-        Mesa mesa = orden.getMesa();
-        mesa.setTotal(orden.total);
-        mesaRepository.save(mesa);
 
+    @PostMapping("/editar/{id}")
+    public Orden editarManual(@PathVariable("id") Long id, @RequestBody Map<String, Object> payload) {
+        Orden orden = ordenRepository.findById(id).orElseThrow();
+        if (payload.containsKey("notas")) orden.setNotas((String) payload.get("notas"));
+        if (payload.containsKey("total")) {
+            Object t = payload.get("total");
+            if (t instanceof Number) orden.setTotal(((Number) t).doubleValue());
+        }
+        orden.setEstado("PENDIENTE");
+        Mesa mesa = orden.getMesa();
+        mesa.setTotal(orden.getTotal());
+        mesaRepository.save(mesa);
         return ordenRepository.save(orden);
     }
 }

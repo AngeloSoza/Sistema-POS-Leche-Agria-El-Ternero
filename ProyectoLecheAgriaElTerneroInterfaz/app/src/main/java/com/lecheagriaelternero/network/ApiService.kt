@@ -17,22 +17,22 @@ interface ApiService {
     @GET("api/ordenes")
     suspend fun getOrdenes(): List<OrdenBackend>
 
-    @POST("api/ordenes/{mesaId}")
-    suspend fun enviarOrdenCocina(
-        @Path("mesaId") mesaId: String,
-        @Body orden: @JvmSuppressWildcards Map<String, Any>
-    )
-
     @PATCH("api/ordenes/{id}/estado")
     suspend fun actualizarEstadoOrden(
         @Path("id") id: String,
         @Body estado: Map<String, String>
     )
 
-    @PATCH("api/ordenes/{id}")
-    suspend fun actualizarOrden(
+    @POST("api/ordenes/enviar/{mesaId}")
+    suspend fun enviarPedido(
+        @Path("mesaId") mesaId: String,
+        @Body payload: @JvmSuppressWildcards Map<String, Any>
+    )
+
+    @POST("api/ordenes/editar/{id}")
+    suspend fun editarManual(
         @Path("id") id: String,
-        @Body payload: Map<String, Any>
+        @Body payload: @JvmSuppressWildcards Map<String, Any>
     )
 
     @PUT("api/menu/{id}")

@@ -3,6 +3,7 @@ package com.lecheagriaelternero.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
@@ -22,15 +23,15 @@ import com.lecheagriaelternero.viewmodel.MenuViewModel
 @Composable
 fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
     val productosEnCarrito by viewModel.carritoActual.collectAsStateWithLifecycle()
+    val ordenPrevia by viewModel.ordenActivaMesa.collectAsStateWithLifecycle()
     var notas by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Confirmar Pedido", fontWeight = FontWeight.Bold) },
+                title = { Text("Confirmar / Editar Pedido", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        // Ícono de flecha actualizado para evitar la advertencia
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
                 },
@@ -44,13 +45,36 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
     ) { paddingValues ->
         Column(modifier = Modifier.padding(paddingValues).padding(16.dp).fillMaxSize()) {
 
-            if (productosEnCarrito.isEmpty()) {
-                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text("El carrito está vacío", color = Color.Gray)
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                // SECCIÓN 1: LO QUE YA ESTÁ PEDIDO (Si existe)
+                ordenPrevia?.let { orden ->
+                    item {
+                        Surface(
+                            color = Color(0xFFFFF9C4),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text("PEDIDO ACTUAL EN MESA", fontWeight = FontWeight.Black, fontSize = 12.sp, color = Color(0xFF827717))
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(orden.notas ?: "Sin detalles", fontSize = 13.sp, color = Color.DarkGray)
+                                Text("Consumo acumulado: C$ ${orden.total}", fontWeight = FontWeight.Bold, color = Color(0xFF1B6D24), modifier = Modifier.padding(top = 8.dp))
+                            }
+                        }
+                        Text("AÑADIR A LA ORDEN:", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.Gray)
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
                 }
-            } else {
-                LazyColumn(modifier = Modifier.weight(1f)) {
+
+                if (productosEnCarrito.isEmpty()) {
+                    item {
+                        Box(modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp), contentAlignment = Alignment.Center) {
+                            Text("No has añadido productos nuevos", color = Color.LightGray)
+                        }
+                    }
+                } else {
                     items(productosEnCarrito) { producto ->
+                        // ... (resto del diseño del item del carrito que ya teníamos)
                         Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),

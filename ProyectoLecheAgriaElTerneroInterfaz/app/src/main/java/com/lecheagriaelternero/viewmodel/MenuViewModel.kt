@@ -41,9 +41,22 @@ class MenuViewModel : ViewModel() {
         cargarOrdenes()
     }
 
+    private val _ordenActivaMesa = MutableStateFlow<OrdenBackend?>(null)
+    val ordenActivaMesa: StateFlow<OrdenBackend?> = _ordenActivaMesa
+
     fun setMesaSeleccionada(id: String) {
-        _mesaSeleccionadaId.value = id
-        vaciarCarrito()
+        if (_mesaSeleccionadaId.value != id) {
+            _mesaSeleccionadaId.value = id
+            vaciarCarrito() // Limpiar items nuevos de la sesión anterior
+            
+            // Cargar automáticamente la orden de esta mesa si existe
+            viewModelScope.launch {
+                cargarOrdenes()
+                _ordenActivaMesa.value = _ordenesActivas.value.find { 
+                    it.mesa?.id == id && it.estado != "PAGADO" 
+                }
+            }
+        }
     }
 
     fun cargarMesas() {
@@ -100,14 +113,35 @@ class MenuViewModel : ViewModel() {
 
                 val totalCarrito = _carritoActual.value.sumOf { it.precio }
 
-                val detalleItems = _carritoActual.value.joinToString("\n") { "- 1x ${it.nombre}" }
-                val notaFinal = "$detalleItems\n\n⚠️ NOTAS: Persona ${_personaActual.value}: $notas"
+                // AGRUPACIÓN INTELIGENTE DE ITEMS
+                val itemsLimpios = _carritoActual.value.map { 
+                    it.copy(
+                        nombre = it.nombre.replace(" (Config)", "").trim(),
+                        descripcion = it.descripcion.trim()
+                    ) 
+                }
+                
+                val itemsAgrupados = itemsLimpios.groupBy { "${it.nombre.lowercase()}|${it.descripcion.lowercase()}" }
+                val detalleItems = itemsAgrupados.entries.joinToString("\n") { (key, lista) ->
+                    val cantidad = lista.size
+                    val originalItem = lista.first() // Usar el item original para mantener mayúsculas/minúsculas
+                    val nombre = originalItem.nombre
+                    val desc = originalItem.descripcion
+                    
+                    if (desc.isNotBlank() && desc != "null") {
+                        "- ${cantidad}x $nombre\n   $desc"
+                    } else {
+                        "- ${cantidad}x $nombre"
+                    }
+                }
+                
+                val notaFinal = if (notas.isBlank()) detalleItems else "$detalleItems\n\n📝 NOTAS GENERALES: $notas"
 
                 val payload = mapOf(
                     "notas" to notaFinal,
                     "total" to totalCarrito.toDouble()
                 )
-                RetrofitClient.apiService.enviarOrdenCocina(mesaId, payload)
+                RetrofitClient.apiService.enviarPedido(mesaId, payload)
 
                 vaciarCarrito()
                 cargarMesas()
@@ -130,11 +164,11 @@ class MenuViewModel : ViewModel() {
         }
     }
 
-    fun actualizarOrden(ordenId: Long, notas: String, total: Double) {
+    fun actualizarOrdenManual(ordenId: Long, notas: String, total: Double) {
         viewModelScope.launch {
             try {
                 val payload = mapOf("notas" to notas, "total" to total)
-                RetrofitClient.apiService.actualizarOrden(ordenId.toString(), payload)
+                RetrofitClient.apiService.editarManual(ordenId.toString(), payload)
                 cargarOrdenes()
                 cargarMesas()
             } catch (e: Exception) {
