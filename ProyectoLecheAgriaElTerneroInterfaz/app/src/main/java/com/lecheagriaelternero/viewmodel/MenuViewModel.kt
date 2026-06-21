@@ -113,41 +113,51 @@ class MenuViewModel : ViewModel() {
 
                 val totalCarrito = _carritoActual.value.sumOf { it.precio }
 
-                // AGRUPACIÓN INTELIGENTE DE ITEMS
-                val itemsLimpios = _carritoActual.value.map { 
+                val itemsLimpios = _carritoActual.value.map {
                     it.copy(
                         nombre = it.nombre.replace(" (Config)", "").trim(),
                         descripcion = it.descripcion.trim()
-                    ) 
+                    )
                 }
-                
+
                 val itemsAgrupados = itemsLimpios.groupBy { "${it.nombre.lowercase()}|${it.descripcion.lowercase()}" }
+
+                // 1. Preparamos el bloque de texto para la cocina (Como estaba antes)
                 val detalleItems = itemsAgrupados.entries.joinToString("\n") { (key, lista) ->
                     val cantidad = lista.size
-                    val originalItem = lista.first() // Usar el item original para mantener mayúsculas/minúsculas
-                    val nombre = originalItem.nombre
-                    val desc = originalItem.descripcion
-                    
-                    if (desc.isNotBlank() && desc != "null") {
-                        "- ${cantidad}x $nombre\n   $desc"
+                    val originalItem = lista.first()
+                    if (originalItem.descripcion.isNotBlank() && originalItem.descripcion != "null") {
+                        "- ${cantidad}x ${originalItem.nombre}\n   ${originalItem.descripcion}"
                     } else {
-                        "- ${cantidad}x $nombre"
+                        "- ${cantidad}x ${originalItem.nombre}"
                     }
                 }
-                
                 val notaFinal = if (notas.isBlank()) detalleItems else "$detalleItems\n\n📝 NOTAS GENERALES: $notas"
 
-                val payload = mapOf(
-                    "notas" to notaFinal,
-                    "total" to totalCarrito.toDouble()
+                // 2. Preparamos la estructura JSON para la tabla "detalle_ordenes" de PostgreSQL
+                val detallesPayload = itemsAgrupados.entries.map { (_, lista) ->
+                    val originalItem = lista.first()
+                    DetallePayload(
+                        productoId = originalItem.id.toLongOrNull() ?: 0L,
+                        cantidad = lista.size,
+                        precioUnitario = originalItem.precio
+                    )
+                }
+
+                // 3. Enviamos el objeto estructurado
+                val payload = OrdenPayload(
+                    notas = notaFinal,
+                    total = totalCarrito,
+                    detalles = detallesPayload
                 )
+
                 RetrofitClient.apiService.enviarPedido(mesaId, payload)
 
                 vaciarCarrito()
                 cargarMesas()
                 cargarOrdenes()
             } catch (e: Exception) {
-                _errorState.value = "Error conectando con la cocina: ${e.message}"
+                _errorState.value = "Error conectando con la base de datos: ${e.message}"
             }
         }
     }

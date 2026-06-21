@@ -24,6 +24,11 @@ import com.lecheagriaelternero.viewmodel.MenuViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PantallaCocina(navController: NavController, viewModel: MenuViewModel) {
+    // FORZAR RECARGA AL ENTRAR
+    LaunchedEffect(Unit) {
+        viewModel.cargarOrdenes()
+    }
+
     val ordenes by viewModel.ordenesActivas.collectAsStateWithLifecycle()
 
     val ordenesCocina = ordenes.filter { it.estado == "PENDIENTE" || it.estado == "LISTO" }

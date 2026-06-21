@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Receipt
@@ -22,18 +23,28 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.lecheagriaelternero.model.OrdenBackend
 import com.lecheagriaelternero.viewmodel.MenuViewModel
+import com.lecheagriaelternero.viewmodel.CajaViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PantallaCaja(navController: NavController, viewModel: MenuViewModel) {
+fun PantallaCaja(
+    navController: NavController,
+    viewModel: MenuViewModel,
+    cajaViewModel: CajaViewModel = viewModel()
+) {
     val ordenesActivas by viewModel.ordenesActivas.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
@@ -67,46 +78,146 @@ fun PantallaCaja(navController: NavController, viewModel: MenuViewModel) {
                 Tab(
                     selected = tabSeleccionado == 0,
                     onClick = { tabSeleccionado = 0; ordenSeleccionada = null },
-                    text = { Text("Pendientes de Cobro", fontWeight = FontWeight.Bold) }
+                    text = { Text("Turno", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
                 )
                 Tab(
                     selected = tabSeleccionado == 1,
                     onClick = { tabSeleccionado = 1; ordenSeleccionada = null },
-                    text = { Text("Historial de Recibos", fontWeight = FontWeight.Bold) }
+                    text = { Text("Pendientes", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+                )
+                Tab(
+                    selected = tabSeleccionado == 2,
+                    onClick = { tabSeleccionado = 2; ordenSeleccionada = null },
+                    text = { Text("Historial", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
                 )
             }
 
-            if (tabSeleccionado == 0) {
-                if (ordenesCaja.isEmpty()) {
-                    Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Text("No hay cuentas pendientes por cobrar.", color = Color.Gray)
+            when (tabSeleccionado) {
+                0 -> {
+                    PanelAperturaTurno(cajaViewModel = cajaViewModel)
+                }
+                1 -> {
+                    if (ordenesCaja.isEmpty()) {
+                        Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            Text("No hay cuentas pendientes por cobrar.", color = Color.Gray)
+                        }
+                    } else {
+                        LazyColumn(modifier = Modifier.weight(1f).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            items(ordenesCaja) { orden ->
+                                MesaCobroItem(orden, seleccionada = ordenSeleccionada?.id == orden.id) {
+                                    ordenSeleccionada = orden
+                                }
+                            }
+                        }
                     }
-                } else {
-                    LazyColumn(modifier = Modifier.weight(1f).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(ordenesCaja) { orden ->
-                            MesaCobroItem(orden, seleccionada = ordenSeleccionada?.id == orden.id) {
-                                ordenSeleccionada = orden
+
+                    ordenSeleccionada?.let { orden ->
+                        PanelCobro(orden = orden, viewModel = viewModel, context = context) {
+                            ordenSeleccionada = null
+                        }
+                    }
+                }
+                2 -> {
+                    if (ordenesPagadas.isEmpty()) {
+                        Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            Text("No hay órdenes pagadas en la base de datos.", color = Color.Gray)
+                        }
+                    } else {
+                        LazyColumn(modifier = Modifier.weight(1f).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            items(ordenesPagadas.reversed()) { orden ->
+                                ReciboItem(orden = orden, context = context)
                             }
                         }
                     }
                 }
+            }
+        }
+    }
+}
 
-                ordenSeleccionada?.let { orden ->
-                    PanelCobro(orden = orden, viewModel = viewModel, context = context) {
-                        ordenSeleccionada = null
+@Composable
+fun PanelAperturaTurno(cajaViewModel: CajaViewModel) {
+    var montoTexto by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = Color.White,
+            shadowElevation = 8.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Apertura de Caja",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color(0xFF1E1E1E)
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "Ingrese el fondo inicial en efectivo",
+                    color = Color.Gray,
+                    fontSize = 14.sp
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                OutlinedTextField(
+                    value = montoTexto,
+                    onValueChange = { montoTexto = it },
+                    label = { Text("Monto Inicial (C$)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFF1B6D24),
+                        focusedLabelColor = Color(0xFF1B6D24)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Button(
+                    onClick = {
+                        val monto = montoTexto.toDoubleOrNull()
+                        if (monto != null && monto >= 0) {
+                            cajaViewModel.abrirCaja(monto)
+                        } else {
+                            cajaViewModel.mensajeError = "Por favor, ingrese un monto válido."
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B6D24)),
+                    enabled = !cajaViewModel.isLoading
+                ) {
+                    if (cajaViewModel.isLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
+                    } else {
+                        Text("Iniciar Turno", fontWeight = FontWeight.Bold)
                     }
                 }
-            } else {
-                if (ordenesPagadas.isEmpty()) {
-                    Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Text("No hay órdenes pagadas en la base de datos.", color = Color.Gray)
-                    }
-                } else {
-                    LazyColumn(modifier = Modifier.weight(1f).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(ordenesPagadas.reversed()) { orden ->
-                            ReciboItem(orden = orden, context = context)
-                        }
-                    }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (cajaViewModel.mensajeExito.isNotEmpty()) {
+                    Text(text = cajaViewModel.mensajeExito, color = Color(0xFF1B6D24), fontWeight = FontWeight.Bold)
+                }
+
+                if (cajaViewModel.mensajeError.isNotEmpty()) {
+                    Text(text = cajaViewModel.mensajeError, color = Color.Red, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -175,6 +286,9 @@ fun PanelCobro(orden: OrdenBackend, viewModel: MenuViewModel, context: Context, 
     var expandedBanco by remember { mutableStateOf(false) }
     val bancos = listOf("BAC", "Banpro", "Ficohsa", "Lafise")
 
+    // CoroutineScope para ejecutar tareas pesadas en segundo plano
+    val coroutineScope = rememberCoroutineScope()
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = Color.White,
@@ -216,11 +330,17 @@ fun PanelCobro(orden: OrdenBackend, viewModel: MenuViewModel, context: Context, 
                         return@Button
                     }
 
-                    generarPDF(context, orden)
-                    viewModel.cambiarEstadoOrden(orden.id, "PAGADO")
+                    // Se ejecuta en segundo plano (IO) para evitar el ANR
+                    coroutineScope.launch(Dispatchers.IO) {
+                        generarPDF(context, orden)
 
-                    Toast.makeText(context, "Cuenta cobrada. Factura generada con éxito.", Toast.LENGTH_LONG).show()
-                    onCobroCompletado()
+                        // Regresa al hilo principal para actualizar la UI
+                        withContext(Dispatchers.Main) {
+                            viewModel.cambiarEstadoOrden(orden.id, "PAGADO")
+                            Toast.makeText(context, "Cuenta cobrada. Factura generada con éxito.", Toast.LENGTH_LONG).show()
+                            onCobroCompletado()
+                        }
+                    }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B6D24))
