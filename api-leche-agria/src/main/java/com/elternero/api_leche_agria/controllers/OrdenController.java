@@ -47,60 +47,61 @@ public class OrdenController {
         return ordenRepository.save(orden);
     }
 
-    @PostMapping("/edit/{id}")
-    public Orden actualizarOrden(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
-        Orden orden = ordenRepository.findById(id).orElseThrow();
-        
-        if (payload.containsKey("notas")) {
-            orden.setNotas((String) payload.get("notas"));
-        }
-        if (payload.containsKey("total")) {
-            Object totalObj = payload.get("total");
-            if (totalObj instanceof Number) {
-                orden.setTotal(((Number) totalObj).doubleValue());
-            }
-        }
-        
-        orden.setEstado("PENDIENTE");
-        
-        Mesa mesa = orden.getMesa();
-        mesa.setTotal(orden.getTotal());
-        mesaRepository.save(mesa);
-        
-        return ordenRepository.save(orden);
-    }
-
-    @PostMapping("/{mesaId}")
-    public Orden crearOActualizarOrden(@PathVariable Long mesaId, @RequestBody Map<String, Object> payload) {
+    @PostMapping("/{mesaId}/enviar")
+    public Orden enviarPedido(@PathVariable Long mesaId, @RequestBody Map<String, Object> payload) {
         Mesa mesa = mesaRepository.findById(mesaId).orElseThrow();
 
+        // Buscamos orden activa para esta mesa
         Orden orden = ordenRepository.findAll().stream()
                 .filter(o -> o.getMesa().getId().equals(mesaId) && !"PAGADO".equals(o.getEstado()))
                 .findFirst()
                 .orElse(new Orden());
 
         orden.setMesa(mesa);
-
         String notasNuevas = (String) payload.get("notas");
-        if (orden.getId() != null) {
-            orden.setNotas(orden.getNotas() + "\n--- ACTUALIZACIÓN ---\n" + notasNuevas);
-        } else {
-            orden.setNotas(notasNuevas);
-        }
         
+        if (orden.getId() != null) {
+            // SI YA EXISTE UNA ORDEN: Marcamos lo que ya estaba como entregado visualmente
+            String historial = orden.getNotas();
+            // Limpiamos marcas de "NUEVO" previas del historial si existen
+            historial = historial.replace("⭐ [NUEVO] ", "✅ [ENTREGADO] ");
+            
+            // Añadimos lo nuevo con una marca especial
+            String nuevasConMarca = notasNuevas.replace("- ", "⭐ [NUEVO] - ");
+            orden.setNotas(historial + "\n\n--- ADICIÓN SOLICITADA ---\n" + nuevasConMarca);
+        } else {
+            // SI ES NUEVA: Marcamos todo como nuevo
+            orden.setNotas(notasNuevas.replace("- ", "⭐ [NUEVO] - "));
+        }
+
         orden.setEstado("PENDIENTE");
 
         Object totalNuevoObj = payload.get("total");
-        Double totalNuevo = 0.0;
+        Double totalAdicional = 0.0;
         if (totalNuevoObj instanceof Number) {
-            totalNuevo = ((Number) totalNuevoObj).doubleValue();
+            totalAdicional = ((Number) totalNuevoObj).doubleValue();
         }
-        orden.setTotal((orden.getTotal() != null ? orden.getTotal() : 0.0) + totalNuevo);
+        orden.setTotal((orden.getTotal() != null ? orden.getTotal() : 0.0) + totalAdicional);
 
         mesa.setEstado("OCUPADA");
         mesa.setTotal(orden.getTotal());
         mesaRepository.save(mesa);
 
+        return ordenRepository.save(orden);
+    }
+
+    @PostMapping("/{id}/editar-manual")
+    public Orden editarManual(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
+        Orden orden = ordenRepository.findById(id).orElseThrow();
+        if (payload.containsKey("notas")) orden.setNotas((String) payload.get("notas"));
+        if (payload.containsKey("total")) {
+            Object t = payload.get("total");
+            if (t instanceof Number) orden.setTotal(((Number) t).doubleValue());
+        }
+        orden.setEstado("PENDIENTE");
+        Mesa mesa = orden.getMesa();
+        mesa.setTotal(orden.getTotal());
+        mesaRepository.save(mesa);
         return ordenRepository.save(orden);
     }
 }
