@@ -23,10 +23,15 @@ import com.lecheagriaelternero.viewmodel.MenuViewModel
 fun PantallaCocina(navController: NavController, viewModel: MenuViewModel) {
     val ordenes by viewModel.ordenesActivas.collectAsStateWithLifecycle()
 
-    val ordenesCocina = ordenes.filter { it.estado == "PENDIENTE" }
+    val ordenesCocina = ordenes.filter { it.estado == "PENDIENTE" || it.estado == "LISTO" }
+        .sortedByDescending { it.id } // Mostrar las más nuevas arriba
 
+    // SISTEMA DE REFRESCADO AUTOMÁTICO CADA 5 SEGUNDOS
     LaunchedEffect(Unit) {
-        viewModel.cargarOrdenes()
+        while(true) {
+            viewModel.cargarOrdenes()
+            kotlinx.coroutines.delay(5000)
+        }
     }
 
     Scaffold(
@@ -57,10 +62,16 @@ fun PantallaCocina(navController: NavController, viewModel: MenuViewModel) {
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(ordenesCocina) { orden ->
-                        KitchenTicketCard(orden = orden, onAction = {
-                            // CORREGIDO: Ahora se manda a LISTO, no a PAGADO
-                            viewModel.cambiarEstadoOrden(orden.id, "LISTO")
-                        })
+                        val esListo = orden.estado == "LISTO"
+                        KitchenTicketCard(
+                            orden = orden, 
+                            colorFondo = if (esListo) Color(0xFFE8F5E9) else Color.White,
+                            onAction = {
+                                if (!esListo) {
+                                    viewModel.cambiarEstadoOrden(orden.id, "LISTO")
+                                }
+                            }
+                        )
                     }
                 }
             }
@@ -69,16 +80,21 @@ fun PantallaCocina(navController: NavController, viewModel: MenuViewModel) {
 }
 
 @Composable
-fun KitchenTicketCard(orden: OrdenBackend, onAction: () -> Unit) {
+fun KitchenTicketCard(orden: OrdenBackend, colorFondo: Color = Color.White, onAction: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = colorFondo),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("Mesa ${orden.mesa?.numero ?: "N/A"}", fontSize = 24.sp, fontWeight = FontWeight.Black)
+                if (orden.estado == "LISTO") {
+                    Surface(color = Color(0xFF1B6D24), shape = RoundedCornerShape(8.dp)) {
+                        Text("LISTA", modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
 
             Text("Ticket #${orden.id}", fontSize = 12.sp, color = Color.Gray)
@@ -89,13 +105,15 @@ fun KitchenTicketCard(orden: OrdenBackend, onAction: () -> Unit) {
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            Button(
-                onClick = onAction,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1E1E)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("ORDEN LISTA ✅", fontWeight = FontWeight.Bold)
+            if (orden.estado == "PENDIENTE") {
+                Button(
+                    onClick = onAction,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1E1E)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("ORDEN LISTA ✅", fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
