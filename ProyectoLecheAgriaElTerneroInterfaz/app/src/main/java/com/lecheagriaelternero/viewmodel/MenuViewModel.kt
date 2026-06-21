@@ -48,7 +48,13 @@ class MenuViewModel : ViewModel() {
 
     fun cargarMesas() {
         viewModelScope.launch {
-            try { _mesas.value = RetrofitClient.apiService.getMesas() } catch (e: Exception) { }
+            try {
+                val lista = RetrofitClient.apiService.getMesas()
+                // Ordenar por número de mesa para que no se muevan
+                _mesas.value = lista.sortedBy { 
+                    it.numero.replace(Regex("[^0-9]"), "").toIntOrNull() ?: 0 
+                }
+            } catch (e: Exception) { }
         }
     }
 
@@ -73,6 +79,12 @@ class MenuViewModel : ViewModel() {
     fun agregarAlCarrito(producto: Producto) {
         val lista = _carritoActual.value.toMutableList()
         lista.add(producto)
+        _carritoActual.value = lista
+    }
+
+    fun eliminarDelCarrito(producto: Producto) {
+        val lista = _carritoActual.value.toMutableList()
+        lista.remove(producto)
         _carritoActual.value = lista
     }
 
@@ -114,6 +126,19 @@ class MenuViewModel : ViewModel() {
                 cargarMesas()
             } catch (e: Exception) {
                 _errorState.value = "Error actualizando orden: ${e.message}"
+            }
+        }
+    }
+
+    fun actualizarOrden(ordenId: Long, notas: String, total: Double) {
+        viewModelScope.launch {
+            try {
+                val payload = mapOf("notas" to notas, "total" to total)
+                RetrofitClient.apiService.actualizarOrden(ordenId.toString(), payload)
+                cargarOrdenes()
+                cargarMesas()
+            } catch (e: Exception) {
+                _errorState.value = "Error editando orden: ${e.message}"
             }
         }
     }
