@@ -29,6 +29,12 @@ interface ApiService {
         @Body estado: Map<String, String>
     )
 
+    @PATCH("api/ordenes/{id}")
+    suspend fun actualizarOrden(
+        @Path("id") id: String,
+        @Body payload: Map<String, Any>
+    )
+
     @PUT("api/menu/{id}")
     suspend fun actualizarProducto(
         @Path("id") id: String,
@@ -43,11 +49,20 @@ interface ApiService {
 
     @GET("api/estadisticas/hoy")
     suspend fun getEstadisticasDelDia(): EstadisticasDia
+
+    // --- AQUÍ ESTÁN LAS NUEVAS RUTAS DE CAJA (Dentro de la interfaz) ---
+
+    @POST("api/caja/abrir")
+    suspend fun abrirCaja(@Body sesionCaja: SesionCaja): retrofit2.Response<SesionCaja>
+
+    @POST("api/caja/pagar")
+    suspend fun registrarPago(@Body pago: Pago): retrofit2.Response<Pago>
 }
 
+// --- AQUÍ EMPIEZA EL CLIENTE (No se toca) ---
 object RetrofitClient {
 
-    private const val BASE_URL = "http://10.209.82.72:8080/"
+    private const val BASE_URL = "http://192.168.0.8:8080/"
 
     private val logging = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
