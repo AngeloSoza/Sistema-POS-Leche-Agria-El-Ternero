@@ -100,8 +100,21 @@ class MenuViewModel : ViewModel() {
 
                 val totalCarrito = _carritoActual.value.sumOf { it.precio }
 
-                val detalleItems = _carritoActual.value.joinToString("\n") { "- 1x ${it.nombre}" }
-                val notaFinal = if (notas.isBlank()) detalleItems else "$detalleItems\n⚠️ NOTAS: $notas"
+                // AGRUPACIÓN INTELIGENTE DE ITEMS
+                val itemsAgrupados = _carritoActual.value.groupBy { "${it.nombre}|${it.descripcion}" }
+                val detalleItems = itemsAgrupados.entries.joinToString("\n") { (key, lista) ->
+                    val cantidad = lista.size
+                    val nombre = key.split("|")[0]
+                    val desc = key.split("|")[1]
+                    
+                    if (desc.isNotBlank() && desc != "null") {
+                        "- ${cantidad}x $nombre\n   $desc"
+                    } else {
+                        "- ${cantidad}x $nombre"
+                    }
+                }
+                
+                val notaFinal = if (notas.isBlank()) detalleItems else "$detalleItems\n\n📝 NOTAS GENERALES: $notas"
 
                 val payload = mapOf(
                     "notas" to notaFinal,

@@ -354,6 +354,12 @@ fun DialogoPersonalizar(
     var notasAdicionales by remember { mutableStateOf("") }
     var cantidad by remember { mutableIntStateOf(1) }
     
+    // Término de huevo si aplica
+    var terminoHuevo by remember { mutableStateOf("") }
+    val esHuevoEntero = producto.nombre.lowercase().contains("huevo entero") || 
+                       producto.descripcion.lowercase().contains("huevo entero") ||
+                       producto.nombre.lowercase().contains("huevo ranchero")
+    
     // Identificar ingredientes del combo basados en la descripción
     val ingredientesDisponibles = menuReal.filter { it.categoria != "Combos" }
     
@@ -445,6 +451,20 @@ fun DialogoPersonalizar(
                 }
 
                 HorizontalDivider()
+
+                if (esHuevoEntero) {
+                    Text("Término de la Yema:", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    val opciones = listOf("Suaves", "Medios", "Duros")
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        opciones.forEach { opcion ->
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { terminoHuevo = opcion }) {
+                                RadioButton(selected = terminoHuevo == opcion, onClick = { terminoHuevo = opcion })
+                                Text(opcion, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                    HorizontalDivider()
+                }
 
                 Text("Añadir Extras (Puedes añadir varios):", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 
@@ -549,19 +569,23 @@ fun DialogoPersonalizar(
                     val notaFinal = buildString {
                         val omitidos = ingredientesCombo.filter { it !in ingredientesSeleccionados }
                         if (omitidos.isNotEmpty()) {
-                            append("SIN: ${omitidos.joinToString(", ") { it.nombre }}. ")
+                            append("SIN: ${omitidos.joinToString(", ") { it.nombre.uppercase() }}. ")
+                        }
+                        if (terminoHuevo.isNotBlank()) {
+                            append("TÉRMINO: $terminoHuevo. ")
                         }
                         if (extrasSeleccionados.isNotEmpty()) {
-                            append("EXTRAS: ${extrasSeleccionados.joinToString(", ") { it.nombre }}. ")
+                            append("\nEXTRAS:\n")
+                            extrasSeleccionados.forEach { append("   + ${it.nombre}\n") }
                         }
                         if (notasAdicionales.isNotBlank()) {
-                            append(notasAdicionales)
+                            append("NOTAS: $notasAdicionales")
                         }
                     }
                     val productoModificado = producto.copy(
                         id = java.util.UUID.randomUUID().toString(),
-                        nombre = "${producto.nombre} (Config)",
-                        descripcion = notaFinal.ifEmpty { producto.descripcion },
+                        nombre = producto.nombre, // Quitamos (Config)
+                        descripcion = notaFinal.trim().ifEmpty { producto.descripcion },
                         precio = precioFinal
                     )
                     onConfirm(productoModificado, cantidad)
