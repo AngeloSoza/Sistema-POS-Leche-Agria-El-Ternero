@@ -101,7 +101,12 @@ class MenuViewModel : ViewModel() {
                 val totalCarrito = _carritoActual.value.sumOf { it.precio }
 
                 // AGRUPACIÓN INTELIGENTE DE ITEMS
-                val itemsAgrupados = _carritoActual.value.groupBy { "${it.nombre}|${it.descripcion}" }
+                // Limpiamos nombres de rastros de "(Config)" por si acaso vienen de la UI
+                val itemsLimpios = _carritoActual.value.map { 
+                    it.copy(nombre = it.nombre.replace(" (Config)", "").trim()) 
+                }
+                
+                val itemsAgrupados = itemsLimpios.groupBy { "${it.nombre}|${it.descripcion}" }
                 val detalleItems = itemsAgrupados.entries.joinToString("\n") { (key, lista) ->
                     val cantidad = lista.size
                     val nombre = key.split("|")[0]
