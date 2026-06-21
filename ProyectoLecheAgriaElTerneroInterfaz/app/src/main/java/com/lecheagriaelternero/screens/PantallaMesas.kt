@@ -71,6 +71,9 @@ fun PantallaMesas(navController: NavController, viewModel: MenuViewModel) {
 
                         Card(
                             onClick = {
+                                if (mesa.id != viewModel.mesaSeleccionadaId.value) {
+                                    viewModel.vaciarCarrito() // Solo vaciar si cambiamos de mesa físicamente
+                                }
                                 viewModel.setMesaSeleccionada(mesa.id)
                                 navController.navigate("toma_orden")
                             },

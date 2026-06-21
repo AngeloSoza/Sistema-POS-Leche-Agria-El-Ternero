@@ -23,13 +23,13 @@ interface ApiService {
         @Body estado: Map<String, String>
     )
 
-    @POST("api/ordenes/{mesaId}/enviar")
+    @POST("api/ordenes/enviar/{mesaId}")
     suspend fun enviarPedido(
         @Path("mesaId") mesaId: String,
         @Body payload: @JvmSuppressWildcards Map<String, Any>
     )
 
-    @POST("api/ordenes/{id}/editar-manual")
+    @POST("api/ordenes/editar/{id}")
     suspend fun editarManual(
         @Path("id") id: String,
         @Body payload: @JvmSuppressWildcards Map<String, Any>

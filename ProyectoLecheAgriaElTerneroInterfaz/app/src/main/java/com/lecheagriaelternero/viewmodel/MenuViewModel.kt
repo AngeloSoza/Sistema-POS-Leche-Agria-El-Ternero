@@ -42,8 +42,10 @@ class MenuViewModel : ViewModel() {
     }
 
     fun setMesaSeleccionada(id: String) {
-        _mesaSeleccionadaId.value = id
-        vaciarCarrito()
+        if (_mesaSeleccionadaId.value != id) {
+            _mesaSeleccionadaId.value = id
+            // NO VACIAR EL CARRITO AQUÍ, permitir que el mesero regrese y siga añadiendo
+        }
     }
 
     fun cargarMesas() {
