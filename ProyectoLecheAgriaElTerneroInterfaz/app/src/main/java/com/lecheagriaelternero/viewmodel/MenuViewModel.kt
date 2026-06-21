@@ -101,7 +101,7 @@ class MenuViewModel : ViewModel() {
                 val totalCarrito = _carritoActual.value.sumOf { it.precio }
 
                 val detalleItems = _carritoActual.value.joinToString("\n") { "- 1x ${it.nombre}" }
-                val notaFinal = "$detalleItems\n\n⚠️ NOTAS: Persona ${_personaActual.value}: $notas"
+                val notaFinal = if (notas.isBlank()) detalleItems else "$detalleItems\n⚠️ NOTAS: $notas"
 
                 val payload = mapOf(
                     "notas" to notaFinal,

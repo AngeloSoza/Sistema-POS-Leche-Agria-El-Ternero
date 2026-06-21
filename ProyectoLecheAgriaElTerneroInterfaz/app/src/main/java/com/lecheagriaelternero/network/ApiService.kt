@@ -29,7 +29,7 @@ interface ApiService {
         @Body estado: Map<String, String>
     )
 
-    @PATCH("api/ordenes/{id}")
+    @POST("api/ordenes/{id}/actualizar")
     suspend fun actualizarOrden(
         @Path("id") id: String,
         @Body payload: @JvmSuppressWildcards Map<String, Any>
