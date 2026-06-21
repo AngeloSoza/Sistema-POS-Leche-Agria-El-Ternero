@@ -41,10 +41,21 @@ class MenuViewModel : ViewModel() {
         cargarOrdenes()
     }
 
+    private val _ordenActivaMesa = MutableStateFlow<OrdenBackend?>(null)
+    val ordenActivaMesa: StateFlow<OrdenBackend?> = _ordenActivaMesa
+
     fun setMesaSeleccionada(id: String) {
         if (_mesaSeleccionadaId.value != id) {
             _mesaSeleccionadaId.value = id
-            // NO VACIAR EL CARRITO AQUÍ, permitir que el mesero regrese y siga añadiendo
+            vaciarCarrito() // Limpiar items nuevos de la sesión anterior
+            
+            // Cargar automáticamente la orden de esta mesa si existe
+            viewModelScope.launch {
+                cargarOrdenes()
+                _ordenActivaMesa.value = _ordenesActivas.value.find { 
+                    it.mesa?.id == id && it.estado != "PAGADO" 
+                }
+            }
         }
     }
 

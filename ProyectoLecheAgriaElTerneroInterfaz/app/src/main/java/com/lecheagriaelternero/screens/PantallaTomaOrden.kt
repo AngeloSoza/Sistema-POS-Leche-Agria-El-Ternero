@@ -77,6 +77,8 @@ fun PantallaTomaOrden(navController: NavController, viewModel: MenuViewModel) {
                     }
                 },
                 actions = {
+                    val ordenActivaMesa by viewModel.ordenActivaMesa.collectAsStateWithLifecycle()
+                    
                     BadgedBox(
                         badge = {
                             if (carritoActual.isNotEmpty()) {
@@ -86,10 +88,10 @@ fun PantallaTomaOrden(navController: NavController, viewModel: MenuViewModel) {
                         modifier = Modifier.padding(end = 16.dp)
                     ) {
                         IconButton(onClick = { navController.navigate("carrito") }) {
-                            val colorCarrito = if (ordenPrevia != null) Color(0xFFFFEB3B) else LocalContentColor.current
-                            if (ordenPrevia != null) {
+                            if (ordenActivaMesa != null) {
+                                // CÍRCULO AMARILLO SI HAY ORDEN ACTIVA
                                 Surface(
-                                    color = colorCarrito,
+                                    color = Color(0xFFFFEB3B),
                                     shape = androidx.compose.foundation.shape.CircleShape,
                                     modifier = Modifier.size(40.dp)
                                 ) {
