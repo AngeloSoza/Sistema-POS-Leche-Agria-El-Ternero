@@ -47,7 +47,7 @@ public class OrdenController {
         return ordenRepository.save(orden);
     }
 
-    @PostMapping("/{id}/actualizar")
+    @PostMapping("/edit/{id}")
     public Orden actualizarOrden(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
         Orden orden = ordenRepository.findById(id).orElseThrow();
         
