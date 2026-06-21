@@ -153,11 +153,15 @@ fun KitchenTicketCard(orden: OrdenBackend, colorFondo: Color = Color.White, onAc
                         )
                     }
                 } else {
-                    Surface(color = Color(0xFFFFF3E0), shape = RoundedCornerShape(12.dp)) {
+                    val esActualizacion = orden.notas?.contains("--- ACTUALIZACIÓN ---") == true
+                    Surface(
+                        color = if (esActualizacion) Color(0xFFD32F2F) else Color(0xFFFFF3E0), 
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
                         Text(
-                            "NUEVO", 
+                            if (esActualizacion) "ACTUALIZADA" else "NUEVO", 
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), 
-                            color = Color(0xFFE65100), 
+                            color = if (esActualizacion) Color.White else Color(0xFFE65100),
                             fontSize = 14.sp, 
                             fontWeight = FontWeight.Black
                         )
