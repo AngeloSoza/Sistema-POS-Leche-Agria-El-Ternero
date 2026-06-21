@@ -22,7 +22,7 @@ public class OrdenController {
     @GetMapping
     public List<Orden> obtenerTodasLasOrdenes() {
         return ordenRepository.findAll();
-        @PatchMapping("/{id}")
+        @PostMapping("/{id}/actualizar")
     public Orden actualizarOrden(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
         Orden orden = ordenRepository.findById(id).orElseThrow();
         
@@ -31,14 +31,16 @@ public class OrdenController {
         }
         if (payload.containsKey("total")) {
             // Manejar diferentes tipos numéricos posibles desde JSON
-            Number total = (Number) payload.get("total");
-            orden.setTotal(total.doubleValue());
+            Object totalObj = payload.get("total");
+            if (totalObj instanceof Number) {
+                orden.setTotal(((Number) totalObj).doubleValue());
+            }
         }
         // Al editar manualmente, la dejamos en PENDIENTE por si acaso
         orden.setEstado("PENDIENTE");
         
         Mesa mesa = orden.getMesa();
-        mesa.setTotal(orden.total);
+        mesa.setTotal(orden.getTotal());
         mesaRepository.save(mesa);
         
         return ordenRepository.save(orden);
@@ -50,7 +52,7 @@ public class OrdenController {
         return ordenRepository.findAll().stream()
                 .filter(o -> o.getEstado().equalsIgnoreCase(estado))
                 .toList();
-        @PatchMapping("/{id}")
+        @PostMapping("/{id}/actualizar")
     public Orden actualizarOrden(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
         Orden orden = ordenRepository.findById(id).orElseThrow();
         
@@ -59,14 +61,16 @@ public class OrdenController {
         }
         if (payload.containsKey("total")) {
             // Manejar diferentes tipos numéricos posibles desde JSON
-            Number total = (Number) payload.get("total");
-            orden.setTotal(total.doubleValue());
+            Object totalObj = payload.get("total");
+            if (totalObj instanceof Number) {
+                orden.setTotal(((Number) totalObj).doubleValue());
+            }
         }
         // Al editar manualmente, la dejamos en PENDIENTE por si acaso
         orden.setEstado("PENDIENTE");
         
         Mesa mesa = orden.getMesa();
-        mesa.setTotal(orden.total);
+        mesa.setTotal(orden.getTotal());
         mesaRepository.save(mesa);
         
         return ordenRepository.save(orden);
@@ -84,7 +88,7 @@ public class OrdenController {
             mesa.setEstado("LIBRE");
             mesa.setTotal(0.0);
             mesaRepository.save(mesa);
-            @PatchMapping("/{id}")
+            @PostMapping("/{id}/actualizar")
     public Orden actualizarOrden(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
         Orden orden = ordenRepository.findById(id).orElseThrow();
         
@@ -93,14 +97,16 @@ public class OrdenController {
         }
         if (payload.containsKey("total")) {
             // Manejar diferentes tipos numéricos posibles desde JSON
-            Number total = (Number) payload.get("total");
-            orden.setTotal(total.doubleValue());
+            Object totalObj = payload.get("total");
+            if (totalObj instanceof Number) {
+                orden.setTotal(((Number) totalObj).doubleValue());
+            }
         }
         // Al editar manualmente, la dejamos en PENDIENTE por si acaso
         orden.setEstado("PENDIENTE");
         
         Mesa mesa = orden.getMesa();
-        mesa.setTotal(orden.total);
+        mesa.setTotal(orden.getTotal());
         mesaRepository.save(mesa);
         
         return ordenRepository.save(orden);
@@ -108,7 +114,7 @@ public class OrdenController {
 }
 
         return ordenRepository.save(orden);
-        @PatchMapping("/{id}")
+        @PostMapping("/{id}/actualizar")
     public Orden actualizarOrden(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
         Orden orden = ordenRepository.findById(id).orElseThrow();
         
@@ -117,14 +123,16 @@ public class OrdenController {
         }
         if (payload.containsKey("total")) {
             // Manejar diferentes tipos numéricos posibles desde JSON
-            Number total = (Number) payload.get("total");
-            orden.setTotal(total.doubleValue());
+            Object totalObj = payload.get("total");
+            if (totalObj instanceof Number) {
+                orden.setTotal(((Number) totalObj).doubleValue());
+            }
         }
         // Al editar manualmente, la dejamos en PENDIENTE por si acaso
         orden.setEstado("PENDIENTE");
         
         Mesa mesa = orden.getMesa();
-        mesa.setTotal(orden.total);
+        mesa.setTotal(orden.getTotal());
         mesaRepository.save(mesa);
         
         return ordenRepository.save(orden);
@@ -151,7 +159,7 @@ public class OrdenController {
         } else {
             orden.setNotas(notasNuevas);
             orden.setEstado("PENDIENTE");
-            @PatchMapping("/{id}")
+            @PostMapping("/{id}/actualizar")
     public Orden actualizarOrden(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
         Orden orden = ordenRepository.findById(id).orElseThrow();
         
@@ -160,14 +168,16 @@ public class OrdenController {
         }
         if (payload.containsKey("total")) {
             // Manejar diferentes tipos numéricos posibles desde JSON
-            Number total = (Number) payload.get("total");
-            orden.setTotal(total.doubleValue());
+            Object totalObj = payload.get("total");
+            if (totalObj instanceof Number) {
+                orden.setTotal(((Number) totalObj).doubleValue());
+            }
         }
         // Al editar manualmente, la dejamos en PENDIENTE por si acaso
         orden.setEstado("PENDIENTE");
         
         Mesa mesa = orden.getMesa();
-        mesa.setTotal(orden.total);
+        mesa.setTotal(orden.getTotal());
         mesaRepository.save(mesa);
         
         return ordenRepository.save(orden);
@@ -182,7 +192,7 @@ public class OrdenController {
         mesaRepository.save(mesa);
 
         return ordenRepository.save(orden);
-        @PatchMapping("/{id}")
+        @PostMapping("/{id}/actualizar")
     public Orden actualizarOrden(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
         Orden orden = ordenRepository.findById(id).orElseThrow();
         
@@ -191,14 +201,16 @@ public class OrdenController {
         }
         if (payload.containsKey("total")) {
             // Manejar diferentes tipos numéricos posibles desde JSON
-            Number total = (Number) payload.get("total");
-            orden.setTotal(total.doubleValue());
+            Object totalObj = payload.get("total");
+            if (totalObj instanceof Number) {
+                orden.setTotal(((Number) totalObj).doubleValue());
+            }
         }
         // Al editar manualmente, la dejamos en PENDIENTE por si acaso
         orden.setEstado("PENDIENTE");
         
         Mesa mesa = orden.getMesa();
-        mesa.setTotal(orden.total);
+        mesa.setTotal(orden.getTotal());
         mesaRepository.save(mesa);
         
         return ordenRepository.save(orden);
