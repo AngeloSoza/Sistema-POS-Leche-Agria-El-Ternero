@@ -86,7 +86,23 @@ fun PantallaTomaOrden(navController: NavController, viewModel: MenuViewModel) {
                         modifier = Modifier.padding(end = 16.dp)
                     ) {
                         IconButton(onClick = { navController.navigate("carrito") }) {
-                            Icon(Icons.Default.ShoppingCart, contentDescription = "Ver Carrito")
+                            val colorCarrito = if (ordenPrevia != null) Color(0xFFFFEB3B) else LocalContentColor.current
+                            if (ordenPrevia != null) {
+                                Surface(
+                                    color = colorCarrito,
+                                    shape = androidx.compose.foundation.shape.CircleShape,
+                                    modifier = Modifier.size(40.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.ShoppingCart, 
+                                        contentDescription = "Ver Carrito",
+                                        tint = Color.Black,
+                                        modifier = Modifier.padding(8.dp)
+                                    )
+                                }
+                            } else {
+                                Icon(Icons.Default.ShoppingCart, contentDescription = "Ver Carrito")
+                            }
                         }
                     }
                 }
@@ -328,7 +344,7 @@ fun PantallaTomaOrden(navController: NavController, viewModel: MenuViewModel) {
                 Button(
                     onClick = {
                         val nuevoTotal = totalEdicion.toDoubleOrNull() ?: ordenPrevia.total
-                        viewModel.actualizarOrden(ordenPrevia.id, notasEdicion, nuevoTotal)
+                        viewModel.actualizarOrdenManual(ordenPrevia.id, notasEdicion, nuevoTotal)
                         mostrarEditorOrden = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B6D24))

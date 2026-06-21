@@ -128,7 +128,7 @@ class MenuViewModel : ViewModel() {
                     "notas" to notaFinal,
                     "total" to totalCarrito.toDouble()
                 )
-                RetrofitClient.apiService.enviarOrdenCocina(mesaId, payload)
+                RetrofitClient.apiService.enviarPedido(mesaId, payload)
 
                 vaciarCarrito()
                 cargarMesas()
@@ -151,11 +151,11 @@ class MenuViewModel : ViewModel() {
         }
     }
 
-    fun actualizarOrden(ordenId: Long, notas: String, total: Double) {
+    fun actualizarOrdenManual(ordenId: Long, notas: String, total: Double) {
         viewModelScope.launch {
             try {
                 val payload = mapOf("notas" to notas, "total" to total)
-                RetrofitClient.apiService.actualizarOrden(ordenId.toString(), payload)
+                RetrofitClient.apiService.editarManual(ordenId.toString(), payload)
                 cargarOrdenes()
                 cargarMesas()
             } catch (e: Exception) {
