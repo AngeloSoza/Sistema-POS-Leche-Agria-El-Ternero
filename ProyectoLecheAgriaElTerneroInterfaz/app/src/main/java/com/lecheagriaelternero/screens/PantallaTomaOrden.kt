@@ -7,7 +7,9 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
@@ -233,6 +235,7 @@ fun PantallaTomaOrden(navController: NavController, viewModel: MenuViewModel) {
         val lineasEditables = remember(notasEdicion) { 
             notasEdicion.split("\n").filter { it.isNotBlank() && !it.contains("---") } 
         }
+        var expandedExtraEdit by remember { mutableStateOf(false) }
 
         AlertDialog(
             onDismissRequest = { mostrarEditorOrden = false },
@@ -245,7 +248,7 @@ fun PantallaTomaOrden(navController: NavController, viewModel: MenuViewModel) {
                     
                     Text("Items Detectados (Toca para eliminar):", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     
-                    Box(modifier = Modifier.weight(1f, fill = false).heightIn(max = 250.dp)) {
+                    Box(modifier = Modifier.weight(1f, fill = false).heightIn(max = 200.dp)) {
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             items(lineasEditables) { linea ->
                                 Card(
@@ -270,11 +273,38 @@ fun PantallaTomaOrden(navController: NavController, viewModel: MenuViewModel) {
                         }
                     }
 
+                    HorizontalDivider()
+                    
+                    Text("Añadir Extra a esta Orden:", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    ExposedDropdownMenuBox(expanded = expandedExtraEdit, onExpandedChange = { expandedExtraEdit = !expandedExtraEdit }) {
+                        OutlinedTextField(
+                            value = "Toca para añadir un extra...",
+                            onValueChange = {}, readOnly = true,
+                            label = { Text("Añadir Extra (+ precio)") },
+                            modifier = Modifier.fillMaxWidth().menuAnchor(),
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedExtraEdit) }
+                        )
+                        ExposedDropdownMenu(expanded = expandedExtraEdit, onDismissRequest = { expandedExtraEdit = false }) {
+                            val ingredientesDisponiblesLocal = menuReal.filter { it.categoria != "Combos" }
+                            ingredientesDisponiblesLocal.forEach { p ->
+                                DropdownMenuItem(
+                                    text = { Text("${p.nombre} (+C$ ${p.precio})") },
+                                    onClick = { 
+                                        notasEdicion = if (notasEdicion.isBlank()) "- 1x ${p.nombre}" else "$notasEdicion\n- 1x ${p.nombre}"
+                                        val currentTotal = totalEdicion.toDoubleOrNull() ?: 0.0
+                                        totalEdicion = (currentTotal + p.precio).toString()
+                                        expandedExtraEdit = false 
+                                    }
+                                )
+                            }
+                        }
+                    }
+
                     OutlinedTextField(
                         value = notasEdicion,
                         onValueChange = { notasEdicion = it },
                         label = { Text("Notas y Detalle Manual") },
-                        modifier = Modifier.fillMaxWidth().height(100.dp),
+                        modifier = Modifier.fillMaxWidth().height(80.dp),
                         textStyle = LocalTextStyle.current.copy(fontSize = 12.sp)
                     )
                     
@@ -368,19 +398,19 @@ fun DialogoPersonalizar(
         mutableStateListOf<Producto>().apply { addAll(ingredientesCombo) } 
     }
     
-    var extraAnadido by remember { mutableStateOf<Producto?>(null) }
+    val extrasSeleccionados = remember { mutableStateListOf<Producto>() }
     var expandedExtra by remember { mutableStateOf(false) }
 
     // Cálculo dinámico de precio
     val costoIngredientesOmitidos = ingredientesCombo.filter { it !in ingredientesSeleccionados }.sumOf { it.precio }
-    val costoExtra = extraAnadido?.precio ?: 0.0
-    val precioFinal = (producto.precio - costoIngredientesOmitidos + costoExtra).coerceAtLeast(0.0)
+    val costoExtras = extrasSeleccionados.sumOf { it.precio }
+    val precioFinal = (producto.precio - costoIngredientesOmitidos + costoExtras).coerceAtLeast(0.0)
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Configurar: ${producto.nombre}", fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text("Precio Base: C$ ${producto.precio}", fontWeight = FontWeight.Medium)
 
                 if (ingredientesCombo.isNotEmpty()) {
@@ -409,21 +439,48 @@ fun DialogoPersonalizar(
 
                 HorizontalDivider()
 
-                Text("Añadir Extra:", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text("Añadir Extras (Puedes añadir varios):", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                
+                // Mostrar extras ya añadidos
+                if (extrasSeleccionados.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        extrasSeleccionados.forEach { extra ->
+                            Surface(
+                                color = Color(0xFFF1F8E9),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("${extra.nombre} (+C$ ${extra.precio})", fontSize = 12.sp)
+                                    IconButton(onClick = { extrasSeleccionados.remove(extra) }, modifier = Modifier.size(24.dp)) {
+                                        Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red, modifier = Modifier.size(16.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 ExposedDropdownMenuBox(expanded = expandedExtra, onExpandedChange = { expandedExtra = !expandedExtra }) {
                     OutlinedTextField(
-                        value = extraAnadido?.nombre ?: "Sin extra",
+                        value = "Toca para añadir un extra...",
                         onValueChange = {}, readOnly = true,
-                        label = { Text("Seleccionar Extra (+ precio)") },
+                        label = { Text("Añadir otro extra (+ precio)") },
                         modifier = Modifier.fillMaxWidth().menuAnchor(),
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedExtra) }
                     )
                     ExposedDropdownMenu(expanded = expandedExtra, onDismissRequest = { expandedExtra = false }) {
-                        DropdownMenuItem(text = { Text("Ninguno") }, onClick = { extraAnadido = null; expandedExtra = false })
                         ingredientesDisponibles.forEach { p ->
                             DropdownMenuItem(
                                 text = { Text("${p.nombre} (+C$ ${p.precio})") },
-                                onClick = { extraAnadido = p; expandedExtra = false }
+                                onClick = { 
+                                    extrasSeleccionados.add(p)
+                                    expandedExtra = false 
+                                }
                             )
                         }
                     }
@@ -487,8 +544,8 @@ fun DialogoPersonalizar(
                         if (omitidos.isNotEmpty()) {
                             append("SIN: ${omitidos.joinToString(", ") { it.nombre }}. ")
                         }
-                        if (extraAnadido != null) {
-                            append("EXTRA: ${extraAnadido!!.nombre}. ")
+                        if (extrasSeleccionados.isNotEmpty()) {
+                            append("EXTRAS: ${extrasSeleccionados.joinToString(", ") { it.nombre }}. ")
                         }
                         if (notasAdicionales.isNotBlank()) {
                             append(notasAdicionales)

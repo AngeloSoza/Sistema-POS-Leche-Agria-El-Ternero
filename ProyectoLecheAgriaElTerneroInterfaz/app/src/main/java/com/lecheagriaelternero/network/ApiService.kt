@@ -32,7 +32,7 @@ interface ApiService {
     @PATCH("api/ordenes/{id}")
     suspend fun actualizarOrden(
         @Path("id") id: String,
-        @Body payload: Map<String, Any>
+        @Body payload: @JvmSuppressWildcards Map<String, Any>
     )
 
     @PUT("api/menu/{id}")
