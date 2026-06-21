@@ -6,6 +6,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.*
+import java.util.concurrent.TimeUnit
 
 interface ApiService {
     @GET("api/mesas")
@@ -23,13 +24,13 @@ interface ApiService {
         @Body estado: Map<String, String>
     )
 
-    @POST("api/ordenes/enviar/{mesaId}")
+    @POST("api/ordenes/{mesaId}") // Ruta corregida
     suspend fun enviarPedido(
         @Path("mesaId") mesaId: String,
-        @Body payload: @JvmSuppressWildcards Map<String, Any>
+        @Body payload: OrdenPayload // Tipo de dato corregido al nuevo DTO
     )
 
-    @POST("api/ordenes/editar/{id}")
+    @POST("api/ordenes/editar-pedido/{id}") // El endpoint que faltaba en tu API
     suspend fun editarManual(
         @Path("id") id: String,
         @Body payload: @JvmSuppressWildcards Map<String, Any>
@@ -50,8 +51,6 @@ interface ApiService {
     @GET("api/estadisticas/hoy")
     suspend fun getEstadisticasDelDia(): EstadisticasDia
 
-    // --- AQUÍ ESTÁN LAS NUEVAS RUTAS DE CAJA (Dentro de la interfaz) ---
-
     @POST("api/caja/abrir")
     suspend fun abrirCaja(@Body sesionCaja: SesionCaja): retrofit2.Response<SesionCaja>
 
@@ -59,9 +58,8 @@ interface ApiService {
     suspend fun registrarPago(@Body pago: Pago): retrofit2.Response<Pago>
 }
 
-// --- AQUÍ EMPIEZA EL CLIENTE (No se toca) ---
 object RetrofitClient {
-
+    // CAMBIA ESTA IP SI TU PC CAMBIÓ DE RED
     private const val BASE_URL = "http://192.168.0.8:8080/"
 
     private val logging = HttpLoggingInterceptor().apply {
@@ -70,6 +68,8 @@ object RetrofitClient {
 
     private val client = OkHttpClient.Builder()
         .addInterceptor(logging)
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
         .build()
 
     val apiService: ApiService by lazy {

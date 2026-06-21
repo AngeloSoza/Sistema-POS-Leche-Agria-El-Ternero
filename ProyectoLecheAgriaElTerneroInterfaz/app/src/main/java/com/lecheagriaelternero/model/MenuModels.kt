@@ -49,3 +49,15 @@ data class OrdenBackend(
     @SerializedName("estado") val estado: String = "PENDIENTE",
     @SerializedName("total") val total: Double = 0.0
 )
+
+data class OrdenPayload(
+    val notas: String,
+    val total: Double,
+    val detalles: List<DetallePayload>
+)
+
+data class DetallePayload(
+    val productoId: Long,
+    val cantidad: Int,
+    val precioUnitario: Double
+)
