@@ -356,9 +356,13 @@ fun DialogoPersonalizar(
     
     // Término de huevo si aplica
     var terminoHuevo by remember { mutableStateOf("") }
-    val esHuevoEntero = producto.nombre.lowercase().contains("huevo entero") || 
-                       producto.descripcion.lowercase().contains("huevo entero") ||
-                       producto.nombre.lowercase().contains("huevo ranchero")
+    val nombreLow = producto.nombre.lowercase()
+    val descLowProd = producto.descripcion.lowercase()
+    
+    // Búsqueda más agresiva de palabras clave de huevo entero
+    val esHuevoEntero = nombreLow.contains("huevo") && 
+                       (nombreLow.contains("entero") || nombreLow.contains("ranchero") || 
+                        descLowProd.contains("entero") || descLowProd.contains("ranchero"))
     
     // Identificar ingredientes del combo basados en la descripción
     val ingredientesDisponibles = menuReal.filter { it.categoria != "Combos" }
