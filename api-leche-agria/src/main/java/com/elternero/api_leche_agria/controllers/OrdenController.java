@@ -47,9 +47,11 @@ public class OrdenController {
         return ordenRepository.save(orden);
     }
 
-    @PostMapping("/{mesaId}/enviar")
+    // RUTA ULTRA-SIMPLIFICADA PARA EVITAR 404
+    @PostMapping("/enviar/{mesaId}")
     public Orden enviarPedido(@PathVariable("mesaId") Long mesaId, @RequestBody Map<String, Object> payload) {
         Mesa mesa = mesaRepository.findById(mesaId).orElseThrow();
+        // ... (resto de la lógica igual)
 
         // Buscamos orden activa para esta mesa
         Orden orden = ordenRepository.findAll().stream()
@@ -90,7 +92,7 @@ public class OrdenController {
         return ordenRepository.save(orden);
     }
 
-    @PostMapping("/{id}/editar-manual")
+    @PostMapping("/editar/{id}")
     public Orden editarManual(@PathVariable("id") Long id, @RequestBody Map<String, Object> payload) {
         Orden orden = ordenRepository.findById(id).orElseThrow();
         if (payload.containsKey("notas")) orden.setNotas((String) payload.get("notas"));
