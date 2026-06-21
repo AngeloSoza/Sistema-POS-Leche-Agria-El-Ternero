@@ -232,8 +232,15 @@ fun PantallaTomaOrden(navController: NavController, viewModel: MenuViewModel) {
     }
 
     if (mostrarEditorOrden && ordenPrevia != null) {
-        val lineasEditables = remember(notasEdicion) { 
-            notasEdicion.split("\n").filter { it.isNotBlank() && !it.contains("---") } 
+        // Limpiamos las notas de "Persona 1" si es que existen por error viejo
+        val notasLimpias = remember(notasEdicion) { 
+            notasEdicion.replace(Regex("(?i)⚠️ NOTAS: Persona \\d+:"), "⚠️ NOTAS:")
+                       .replace(Regex("(?i)NOTAS: Persona \\d+:"), "")
+                       .trim()
+        }
+        
+        val lineasEditables = remember(notasLimpias) { 
+            notasLimpias.split("\n").filter { it.isNotBlank() && !it.contains("---") }
         }
         var expandedExtraEdit by remember { mutableStateOf(false) }
 
