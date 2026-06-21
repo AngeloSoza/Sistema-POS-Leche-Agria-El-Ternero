@@ -48,7 +48,7 @@ public class OrdenController {
     }
 
     @PostMapping("/{mesaId}/enviar")
-    public Orden enviarPedido(@PathVariable Long mesaId, @RequestBody Map<String, Object> payload) {
+    public Orden enviarPedido(@PathVariable("mesaId") Long mesaId, @RequestBody Map<String, Object> payload) {
         Mesa mesa = mesaRepository.findById(mesaId).orElseThrow();
 
         // Buscamos orden activa para esta mesa
@@ -91,7 +91,7 @@ public class OrdenController {
     }
 
     @PostMapping("/{id}/editar-manual")
-    public Orden editarManual(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
+    public Orden editarManual(@PathVariable("id") Long id, @RequestBody Map<String, Object> payload) {
         Orden orden = ordenRepository.findById(id).orElseThrow();
         if (payload.containsKey("notas")) orden.setNotas((String) payload.get("notas"));
         if (payload.containsKey("total")) {
