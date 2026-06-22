@@ -48,8 +48,9 @@ class MenuViewModel : ViewModel() {
     fun setMesaSeleccionada(id: String) {
         if (_mesaSeleccionadaId.value != id) {
             _mesaSeleccionadaId.value = id
-            vaciarCarrito()
+            vaciarCarrito() // Limpiar items nuevos de la sesión anterior
 
+            // Cargar automáticamente la orden de esta mesa si existe
             viewModelScope.launch(Dispatchers.IO) {
                 cargarOrdenes()
                 val ordenEncontrada = _ordenesActivas.value.find {
@@ -64,6 +65,7 @@ class MenuViewModel : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val lista = RetrofitClient.apiService.getMesas()
+                // Ordenar por número de mesa para que no se muevan
                 _mesas.value = lista.sortedBy {
                     it.numero.replace(Regex("[^0-9]"), "").toIntOrNull() ?: 0
                 }
@@ -121,7 +123,7 @@ class MenuViewModel : ViewModel() {
 
                 val itemsAgrupados = itemsLimpios.groupBy { "${it.nombre.lowercase()}|${it.descripcion.lowercase()}" }
 
-                // MARCAMOS LO NUEVO CON UN EMOJI CLARO
+                // 1. Los items nuevos del carrito se marcan como NUEVOS
                 val detalleNuevos = itemsAgrupados.entries.joinToString("\n") { (key, lista) ->
                     val cantidad = lista.size
                     val originalItem = lista.first()
@@ -135,6 +137,7 @@ class MenuViewModel : ViewModel() {
                     }
                 }
 
+                // 2. Extraemos el pasado
                 val ordenPrevia = _ordenActivaMesa.value
                 var notasBase = ordenPrevia?.notas ?: ""
                 var notasGenViejas = ""
@@ -145,12 +148,11 @@ class MenuViewModel : ViewModel() {
                     notasGenViejas = partes.getOrNull(1)?.trim() ?: ""
                 }
 
-                // 🛡️ SOLUCIÓN: Si la orden estaba entregada, marcamos los items viejos
-                if (ordenPrevia?.estado == "ENTREGADO") {
-                    notasBase = notasBase.replace("🔴 NUEVO:", "✅ ENTREGADO:")
-                        .replace(Regex("^- ", RegexOption.MULTILINE), "✅ ENTREGADO: ")
-                }
+                // 🛡️ LÓGICA DE RÁFAGAS: Todo el pasado se convierte en "YA PEDIDO"
+                notasBase = notasBase.replace("🔴 NUEVO:", "✅ YA PEDIDO:")
+                    .replace(Regex("^- ", RegexOption.MULTILINE), "✅ YA PEDIDO: ")
 
+                // 3. Concatenamos respetando la historia
                 val notaFinal = buildString {
                     if (notasBase.isNotBlank()) {
                         append(notasBase)
@@ -164,24 +166,16 @@ class MenuViewModel : ViewModel() {
                     }
                 }
 
-                val detallesPayload = itemsAgrupados.entries.map { (_, lista) ->
-                    val originalItem = lista.first()
-                    DetallePayload(
-                        productoId = originalItem.id.toLongOrNull() ?: 0L,
-                        cantidad = lista.size,
-                        precioUnitario = originalItem.precio
-                    )
-                }
-
                 val payload = OrdenPayload(
                     notas = notaFinal.trim(),
                     total = totalCarrito,
-                    detalles = detallesPayload
+                    detalles = emptyList() // 🛡️ Vaciado para evitar crasheos de integridad referencial en Spring Boot
                 )
 
                 RetrofitClient.apiService.enviarPedido(mesaId, payload)
                 vaciarCarrito()
 
+                // 4. Refresco ultra-rápido para la pantalla local
                 val ordenesActualizadas = RetrofitClient.apiService.getOrdenes()
                 _ordenesActivas.value = ordenesActualizadas
                 _ordenActivaMesa.value = ordenesActualizadas.find { it.mesa?.id?.toString() == mesaId && it.estado != "PAGADO" }
@@ -213,6 +207,7 @@ class MenuViewModel : ViewModel() {
                 val payload = mapOf("notas" to notas, "total" to total)
                 RetrofitClient.apiService.editarManual(ordenId.toString(), payload)
 
+                // Refresco instantáneo tras edición manual
                 val ordenesActualizadas = RetrofitClient.apiService.getOrdenes()
                 _ordenesActivas.value = ordenesActualizadas
                 val mesaIdLocal = _mesaSeleccionadaId.value

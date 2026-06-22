@@ -151,10 +151,10 @@ fun OrdenCocinaCard(orden: OrdenBackend, viewModel: MenuViewModel) {
                                     Icon(Icons.Default.Warning, contentDescription = null, tint = Color.Red, modifier = Modifier.size(20.dp).padding(top = 2.dp))
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(linea.replace("🔴 NUEVO:", "").trim(), fontWeight = FontWeight.Black, fontSize = 18.sp, color = Color.Red)
-                                } else if (linea.contains("✅ ENTREGADO:")) {
+                                } else if (linea.contains("✅ YA PEDIDO:") || linea.contains("✅ ENTREGADO:")) {
                                     Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp).padding(top = 2.dp))
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text(linea.replace("✅ ENTREGADO:", "").trim(), fontWeight = FontWeight.Medium, fontSize = 16.sp, color = Color.Gray)
+                                    Text(linea.replace("✅ YA PEDIDO:", "").replace("✅ ENTREGADO:", "").trim(), fontWeight = FontWeight.Medium, fontSize = 16.sp, color = Color.Gray)
                                 } else if (linea.startsWith("- ")) {
                                     Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF1B6D24), modifier = Modifier.size(20.dp).padding(top = 2.dp))
                                     Spacer(modifier = Modifier.width(8.dp))
@@ -178,9 +178,20 @@ fun OrdenCocinaCard(orden: OrdenBackend, viewModel: MenuViewModel) {
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1E1E))
                 ) {
-                    Text("ORDEN LISTA PARA ENTREGAR", fontSize = 16.sp, fontWeight = FontWeight.Black, color = Color.White)
+                    Text("ORDEN LISTA PARA ENTREGAR ✅", fontSize = 16.sp, fontWeight = FontWeight.Black, color = Color.White)
                 }
             }
         }
     }
-}
+
+            if (!isEntregada) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = { viewModel.cambiarEstadoOrden(orden.id, "ENTREGADO") },
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1E1E))
+                ) {
+                    Text("ORDEN LISTA PARA ENTREGAR", fontSize = 16.sp, fontWeight = FontWeight.Black, color = Color.White)
+                }
+            }
+        }
