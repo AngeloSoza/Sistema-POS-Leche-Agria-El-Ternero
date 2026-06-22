@@ -19,7 +19,18 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.lecheagriaelternero.model.Producto
 import com.lecheagriaelternero.viewmodel.MenuViewModel
+import java.util.UUID
+
+// Estructura de datos para parsear la orden en el editor
+data class ItemOrdenParseado(
+    val idUnico: String,
+    val cantidad: Int,
+    val nombre: String,
+    val precioCalculado: Double,
+    val bloqueTextoOriginal: String
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,8 +42,6 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
     var notas by remember { mutableStateOf("") }
 
     var mostrarEditorOrden by remember { mutableStateOf(false) }
-    var notasEdicion by remember { mutableStateOf("") }
-    var totalEdicion by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -70,11 +79,7 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
                                 ) {
                                     Text("PEDIDO ACTUAL EN MESA", fontWeight = FontWeight.Black, fontSize = 12.sp, color = Color(0xFF827717))
                                     Button(
-                                        onClick = {
-                                            notasEdicion = orden.notas ?: ""
-                                            totalEdicion = orden.total.toString()
-                                            mostrarEditorOrden = true
-                                        },
+                                        onClick = { mostrarEditorOrden = true },
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B6D24)),
                                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                                         modifier = Modifier.height(32.dp)
@@ -163,57 +168,91 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
                 },
                 enabled = productosEnCarrito.isNotEmpty(),
                 modifier = Modifier.fillMaxWidth().height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1E1E))
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B6D24))
             ) {
                 Text("Enviar ${if (ordenPrevia != null) "Actualización" else "Nueva Orden"} a Cocina (+C$ $totalNuevos)", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
 
-    // CORRECCIÓN DEL SMART CAST: Congelamos el valor en una variable inmutable
+    // EDITOR INTELIGENTE DE ORDEN
     val ordenActualSegura = ordenPrevia
 
     if (mostrarEditorOrden && ordenActualSegura != null) {
-        val notasLimpias = remember(notasEdicion) {
-            notasEdicion.replace(Regex("(?i)⚠️ NOTAS: Persona \\d+:"), "⚠️ NOTAS:")
-                .replace(Regex("(?i)NOTAS: Persona \\d+:"), "")
-                .trim()
-        }
+        var itemsParseados by remember { mutableStateOf<List<ItemOrdenParseado>>(emptyList()) }
+        var notasGeneralesEdicion by remember { mutableStateOf("") }
+        var totalCalculado by remember { mutableDoubleStateOf(0.0) }
 
-        val lineasEditables = remember(notasLimpias) {
-            notasLimpias.split("\n").filter { it.isNotBlank() && !it.contains("---") }
+        // Extracción automática de precios y nombres al abrir el editor
+        LaunchedEffect(mostrarEditorOrden) {
+            val rawNotas = ordenActualSegura.notas ?: ""
+            var itemsPart = rawNotas
+            var genPart = ""
+
+            if (rawNotas.contains("📝 NOTAS GENERALES:")) {
+                val parts = rawNotas.split("📝 NOTAS GENERALES:")
+                itemsPart = parts[0].trim()
+                genPart = parts.getOrNull(1)?.trim() ?: ""
+            }
+
+            val lines = itemsPart.split("\n")
+            val list = mutableListOf<ItemOrdenParseado>()
+            var currentBlock = mutableListOf<String>()
+
+            for (line in lines) {
+                if (line.startsWith("- ")) {
+                    if (currentBlock.isNotEmpty()) {
+                        list.add(parsearBloque(currentBlock, menuReal))
+                    }
+                    currentBlock = mutableListOf(line)
+                } else if (line.isNotBlank()) {
+                    currentBlock.add(line)
+                }
+            }
+            if (currentBlock.isNotEmpty()) {
+                list.add(parsearBloque(currentBlock, menuReal))
+            }
+
+            itemsParseados = list
+            notasGeneralesEdicion = genPart
+            totalCalculado = ordenActualSegura.total
         }
-        var expandedExtraEdit by remember { mutableStateOf(false) }
 
         AlertDialog(
             onDismissRequest = { mostrarEditorOrden = false },
             properties = DialogProperties(usePlatformDefaultWidth = false),
             modifier = Modifier.fillMaxWidth(0.95f),
-            title = { Text("Editor de Orden Especializada") },
+            title = { Text("Editor Inteligente de Orden", fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Elimina items directamente o ajusta las notas y el total manualmente. Se guardará en la base de datos al instante.", fontSize = 12.sp, color = Color.Gray)
+                    Text("Eliminar un producto descontará su precio automáticamente del total.", fontSize = 12.sp, color = Color.Gray)
 
-                    Text("Items Detectados (Toca para eliminar):", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text("Productos en la Orden:", fontWeight = FontWeight.Bold, fontSize = 14.sp)
 
-                    Box(modifier = Modifier.weight(1f, fill = false).heightIn(max = 200.dp)) {
-                        LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            items(lineasEditables) { linea ->
+                    Box(modifier = Modifier.weight(1f, fill = false).heightIn(max = 250.dp)) {
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(itemsParseados) { item ->
                                 Card(
                                     modifier = Modifier.fillMaxWidth(),
-                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5)),
-                                    onClick = {
-                                        val nuevasLineas = lineasEditables.toMutableList().apply { remove(linea) }
-                                        notasEdicion = nuevasLineas.joinToString("\n")
-                                    }
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
                                 ) {
                                     Row(
-                                        modifier = Modifier.padding(8.dp),
+                                        modifier = Modifier.padding(12.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(linea, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text("${item.cantidad}x ${item.nombre}", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                            Text("C$ ${item.precioCalculado}", color = Color(0xFF1B6D24), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                        }
+                                        IconButton(
+                                            onClick = {
+                                                // RESTA AUTOMÁTICA DEL PRECIO AL ELIMINAR
+                                                itemsParseados = itemsParseados.filter { it.idUnico != item.idUnico }
+                                                totalCalculado = (totalCalculado - item.precioCalculado).coerceAtLeast(0.0)
+                                            }
+                                        ) {
+                                            Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color.Red)
+                                        }
                                     }
                                 }
                             }
@@ -222,56 +261,42 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
 
                     HorizontalDivider()
 
-                    Text("Añadir Extra a esta Orden:", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-
-                    @Suppress("DEPRECATION") // Silencia el aviso del menuAnchor
-                    ExposedDropdownMenuBox(expanded = expandedExtraEdit, onExpandedChange = { expandedExtraEdit = !expandedExtraEdit }) {
-                        OutlinedTextField(
-                            value = "Toca para añadir un extra...",
-                            onValueChange = {}, readOnly = true,
-                            label = { Text("Añadir Extra (+ precio)") },
-                            modifier = Modifier.fillMaxWidth().menuAnchor(),
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedExtraEdit) }
-                        )
-                        ExposedDropdownMenu(expanded = expandedExtraEdit, onDismissRequest = { expandedExtraEdit = false }) {
-                            val ingredientesDisponiblesLocal = menuReal.filter { it.categoria != "Combos" }
-                            ingredientesDisponiblesLocal.forEach { p ->
-                                DropdownMenuItem(
-                                    text = { Text("${p.nombre} (+C$ ${p.precio})") },
-                                    onClick = {
-                                        notasEdicion = if (notasEdicion.isBlank()) "- 1x ${p.nombre}" else "$notasEdicion\n- 1x ${p.nombre}"
-                                        val currentTotal = totalEdicion.toDoubleOrNull() ?: 0.0
-                                        totalEdicion = (currentTotal + p.precio).toString()
-                                        expandedExtraEdit = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-
                     OutlinedTextField(
-                        value = notasEdicion,
-                        onValueChange = { notasEdicion = it },
-                        label = { Text("Notas y Detalle Manual") },
+                        value = notasGeneralesEdicion,
+                        onValueChange = { notasGeneralesEdicion = it },
+                        label = { Text("Notas Generales") },
                         modifier = Modifier.fillMaxWidth().height(80.dp),
                         textStyle = LocalTextStyle.current.copy(fontSize = 12.sp)
                     )
 
+                    // TOTAL AUTOMÁTICO DE SÓLO LECTURA (Desactivado para escritura manual)
                     OutlinedTextField(
-                        value = totalEdicion,
-                        onValueChange = { totalEdicion = it },
-                        label = { Text("Total Final (C$)") },
+                        value = "C$ $totalCalculado",
+                        onValueChange = { },
+                        readOnly = true,
+                        enabled = false,
+                        label = { Text("Total Final (Automático)", fontWeight = FontWeight.Bold) },
                         modifier = Modifier.fillMaxWidth(),
-                        leadingIcon = { Text("C$", fontWeight = FontWeight.Bold) }
+                        colors = OutlinedTextFieldDefaults.colors(
+                            disabledTextColor = Color.Black,
+                            disabledBorderColor = Color(0xFF1B6D24),
+                            disabledLabelColor = Color(0xFF1B6D24)
+                        )
                     )
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        // USAMOS LA VARIABLE CONGELADA PARA QUE KOTLIN NO FALLE
-                        val nuevoTotal = totalEdicion.toDoubleOrNull() ?: ordenActualSegura.total
-                        viewModel.actualizarOrdenManual(ordenActualSegura.id, notasEdicion, nuevoTotal)
+                        // Reconstrucción del texto a enviar a la DB
+                        val nuevoTextoNotas = buildString {
+                            val itemsText = itemsParseados.joinToString("\n") { it.bloqueTextoOriginal }
+                            append(itemsText)
+                            if (notasGeneralesEdicion.isNotBlank()) {
+                                append("\n\n📝 NOTAS GENERALES: $notasGeneralesEdicion")
+                            }
+                        }
+                        viewModel.actualizarOrdenManual(ordenActualSegura.id, nuevoTextoNotas.trim(), totalCalculado)
                         mostrarEditorOrden = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B6D24))
@@ -284,4 +309,31 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
             }
         )
     }
+}
+
+// Función auxiliar para extraer el nombre y calcular el precio de un bloque de texto de la base de datos
+fun parsearBloque(lines: List<String>, menuReal: List<Producto>): ItemOrdenParseado {
+    val firstLine = lines.first()
+    val regex = Regex("- (\\d+)x (.*)")
+    val match = regex.find(firstLine)
+
+    var cant = 1
+    var nombre = firstLine.replace("- ", "").trim()
+    var precioItem = 0.0
+
+    if (match != null) {
+        cant = match.groupValues[1].toIntOrNull() ?: 1
+        nombre = match.groupValues[2].trim()
+        val prod = menuReal.find { it.nombre.equals(nombre, ignoreCase = true) }
+        if (prod != null) {
+            precioItem = prod.precio * cant
+        }
+    }
+    return ItemOrdenParseado(
+        idUnico = UUID.randomUUID().toString(),
+        cantidad = cant,
+        nombre = nombre,
+        precioCalculado = precioItem,
+        bloqueTextoOriginal = lines.joinToString("\n")
+    )
 }

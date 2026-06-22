@@ -48,13 +48,11 @@ class MenuViewModel : ViewModel() {
     fun setMesaSeleccionada(id: String) {
         if (_mesaSeleccionadaId.value != id) {
             _mesaSeleccionadaId.value = id
-            vaciarCarrito() // Limpiar items nuevos de la sesión anterior
+            vaciarCarrito()
 
-            // Cargar automáticamente la orden de esta mesa si existe
-            viewModelScope.launch(Dispatchers.IO) { // INYECTADO: Ejecución en segundo plano
+            viewModelScope.launch(Dispatchers.IO) {
                 cargarOrdenes()
                 val ordenEncontrada = _ordenesActivas.value.find {
-                    // CORRECCIÓN: .toString() para evitar choque de tipos (Long vs String)
                     it.mesa?.id?.toString() == id && it.estado != "PAGADO"
                 }
                 _ordenActivaMesa.value = ordenEncontrada
@@ -63,10 +61,9 @@ class MenuViewModel : ViewModel() {
     }
 
     fun cargarMesas() {
-        viewModelScope.launch(Dispatchers.IO) { // INYECTADO: Ejecución en segundo plano
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 val lista = RetrofitClient.apiService.getMesas()
-                // Ordenar por número de mesa para que no se muevan
                 _mesas.value = lista.sortedBy {
                     it.numero.replace(Regex("[^0-9]"), "").toIntOrNull() ?: 0
                 }
@@ -75,19 +72,19 @@ class MenuViewModel : ViewModel() {
     }
 
     fun cargarMenu() {
-        viewModelScope.launch(Dispatchers.IO) { // INYECTADO: Ejecución en segundo plano
+        viewModelScope.launch(Dispatchers.IO) {
             try { _menu.value = RetrofitClient.apiService.getMenu() } catch (e: Exception) { }
         }
     }
 
     fun cargarEstadisticas() {
-        viewModelScope.launch(Dispatchers.IO) { // INYECTADO: Ejecución en segundo plano
+        viewModelScope.launch(Dispatchers.IO) {
             try { _estadisticas.value = RetrofitClient.apiService.getEstadisticasDelDia() } catch (e: Exception) { }
         }
     }
 
     fun cargarOrdenes() {
-        viewModelScope.launch(Dispatchers.IO) { // INYECTADO: Ejecución en segundo plano
+        viewModelScope.launch(Dispatchers.IO) {
             try { _ordenesActivas.value = RetrofitClient.apiService.getOrdenes() } catch (e: Exception) { }
         }
     }
@@ -116,7 +113,6 @@ class MenuViewModel : ViewModel() {
 
                 val totalCarrito = _carritoActual.value.sumOf { it.precio }
 
-                // AGRUPACIÓN INTELIGENTE DE ITEMS
                 val itemsLimpios = _carritoActual.value.map {
                     it.copy(
                         nombre = it.nombre.replace(" (Config)", "").trim(),
@@ -126,7 +122,6 @@ class MenuViewModel : ViewModel() {
 
                 val itemsAgrupados = itemsLimpios.groupBy { "${it.nombre.lowercase()}|${it.descripcion.lowercase()}" }
 
-                // 1. Preparamos el bloque de texto de los productos NUEVOS
                 val detalleNuevos = itemsAgrupados.entries.joinToString("\n") { (key, lista) ->
                     val cantidad = lista.size
                     val originalItem = lista.first()
@@ -140,20 +135,31 @@ class MenuViewModel : ViewModel() {
                     }
                 }
 
-                val notasNuevas = if (notas.isBlank()) detalleNuevos else "$detalleNuevos\n\n📝 NOTAS GENERALES: $notas"
-
-                // 🛡️ CORRECCIÓN: Rescatamos el texto de la orden vieja y le pegamos lo nuevo abajo
+                // LÓGICA DE MEMORIA ABSOLUTA: Separar items viejos de notas viejas
                 val ordenPrevia = _ordenActivaMesa.value
-                val textoPrevio = if (ordenPrevia != null && !ordenPrevia.notas.isNullOrBlank()) {
-                    "${ordenPrevia.notas}\n"
-                } else {
-                    ""
+                var notasBase = ordenPrevia?.notas ?: ""
+                var notasGenViejas = ""
+
+                if (notasBase.contains("📝 NOTAS GENERALES:")) {
+                    val partes = notasBase.split("📝 NOTAS GENERALES:")
+                    notasBase = partes[0].trim()
+                    notasGenViejas = partes.getOrNull(1)?.trim() ?: ""
                 }
 
-                // Unimos el pasado con el presente
-                val notaFinal = textoPrevio + notasNuevas
+                // CONCATENACIÓN PERFECTA
+                val notaFinal = buildString {
+                    if (notasBase.isNotBlank()) {
+                        append(notasBase)
+                        append("\n")
+                    }
+                    append(detalleNuevos)
 
-                // 2. Preparamos la estructura JSON para la tabla "detalle_ordenes"
+                    val notasGenCombinadas = listOf(notasGenViejas, notas).filter { it.isNotBlank() }.joinToString(" | ")
+                    if (notasGenCombinadas.isNotBlank()) {
+                        append("\n\n📝 NOTAS GENERALES: $notasGenCombinadas")
+                    }
+                }
+
                 val detallesPayload = itemsAgrupados.entries.map { (_, lista) ->
                     val originalItem = lista.first()
                     DetallePayload(
@@ -163,18 +169,16 @@ class MenuViewModel : ViewModel() {
                     )
                 }
 
-                // 3. Enviamos el objeto estructurado
                 val payload = OrdenPayload(
-                    notas = notaFinal,
+                    notas = notaFinal.trim(),
                     total = totalCarrito,
                     detalles = detallesPayload
                 )
 
                 RetrofitClient.apiService.enviarPedido(mesaId, payload)
-
                 vaciarCarrito()
 
-                // Refresco instantáneo para la vista local
+                // Actualización Inmediata
                 val ordenesActualizadas = RetrofitClient.apiService.getOrdenes()
                 _ordenesActivas.value = ordenesActualizadas
                 _ordenActivaMesa.value = ordenesActualizadas.find { it.mesa?.id?.toString() == mesaId && it.estado != "PAGADO" }
@@ -189,7 +193,7 @@ class MenuViewModel : ViewModel() {
     }
 
     fun cambiarEstadoOrden(ordenId: Long, nuevoEstado: String) {
-        viewModelScope.launch(Dispatchers.IO) { // INYECTADO: Ejecución en segundo plano
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 RetrofitClient.apiService.actualizarEstadoOrden(ordenId.toString(), mapOf("estado" to nuevoEstado))
                 cargarOrdenes()
@@ -201,12 +205,11 @@ class MenuViewModel : ViewModel() {
     }
 
     fun actualizarOrdenManual(ordenId: Long, notas: String, total: Double) {
-        viewModelScope.launch(Dispatchers.IO) { // INYECTADO: Ejecución en segundo plano
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 val payload = mapOf("notas" to notas, "total" to total)
                 RetrofitClient.apiService.editarManual(ordenId.toString(), payload)
 
-                // Refresco instantáneo tras edición
                 val ordenesActualizadas = RetrofitClient.apiService.getOrdenes()
                 _ordenesActivas.value = ordenesActualizadas
                 val mesaIdLocal = _mesaSeleccionadaId.value
@@ -220,7 +223,7 @@ class MenuViewModel : ViewModel() {
     }
 
     fun cobrarMesa(mesaId: String, metodoPago: String) {
-        viewModelScope.launch(Dispatchers.IO) { // INYECTADO: Ejecución en segundo plano
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 val payload = mapOf("metodo" to metodoPago)
                 RetrofitClient.apiService.registrarPagoMesa(mesaId, payload)
@@ -233,7 +236,7 @@ class MenuViewModel : ViewModel() {
     }
 
     fun modificarProductoEnBD(productoEditado: Producto) {
-        viewModelScope.launch(Dispatchers.IO) { // INYECTADO: Ejecución en segundo plano
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 RetrofitClient.apiService.actualizarProducto(productoEditado.id, productoEditado)
                 cargarMenu()
