@@ -29,15 +29,19 @@ class MainActivity : ComponentActivity() {
                     val navController = rememberNavController()
 
                     NavHost(navController = navController, startDestination = "splash") {
-                        composable("splash") { PantallaSplash(navController) }
+                        composable("splash") { PantallaSplash(navController, viewModel) }
                         composable("roles") { PantallaRoles(navController) }
                         composable("mesas") { PantallaMesas(navController, viewModel) }
                         composable("toma_orden") { PantallaTomaOrden(navController, viewModel) }
                         composable("carrito") { PantallaCarrito(navController, viewModel) }
                         composable("cocina") { PantallaCocina(navController, viewModel) }
                         composable("caja") { PantallaCaja(navController, viewModel) }
-                        composable("dashboard") { DashboardScreen(navController, viewModel) }
-                        composable("inventario") { PantallaInventario(navController, viewModel) }
+                        composable("dashboard") { DashboardScreen(navController, viewModel) } // Dashboard original si lo usas
+                        composable("inventario") { PantallaInventario(navController, viewModel) } // Inventario original
+
+                        // 🛡️ RUTAS DEL NUEVO MÓDULO DE ADMINISTRACIÓN (EXCLUSIVO DUEÑO)
+                        composable("auth_admin") { PantallaAuthAdmin(navController) }
+                        composable("admin_dashboard") { PantallaAdminDashboard(navController, viewModel) }
                     }
                 }
             }

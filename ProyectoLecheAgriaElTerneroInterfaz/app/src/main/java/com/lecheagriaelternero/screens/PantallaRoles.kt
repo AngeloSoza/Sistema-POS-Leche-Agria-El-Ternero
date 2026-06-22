@@ -70,7 +70,7 @@ fun PantallaRoles(navController: NavController) {
                 colorFondoIcono = Color(0xFFF3E5F5),
                 titulo = "Administración",
                 subtitulo = "Dashboard e Inventario"
-            ) { navController.navigate("dashboard") }
+            ) { navController.navigate("auth_admin") }
         }
     }
 }

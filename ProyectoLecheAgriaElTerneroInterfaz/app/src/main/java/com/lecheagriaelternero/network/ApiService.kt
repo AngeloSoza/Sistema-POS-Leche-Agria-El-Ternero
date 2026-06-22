@@ -1,81 +1,53 @@
 package com.lecheagriaelternero.network
 
 import com.lecheagriaelternero.model.*
-import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.*
 
 interface ApiService {
-    @GET("api/mesas")
+
+    @GET("/api/mesas")
     suspend fun getMesas(): List<Mesa>
 
-    @GET("api/menu")
-    suspend fun getMenu(): List<Producto>
-
-    @GET("api/ordenes")
-    suspend fun getOrdenes(): List<OrdenBackend>
-
-    @PATCH("api/ordenes/{id}/estado")
-    suspend fun actualizarEstadoOrden(
-        @Path("id") id: String,
-        @Body estado: Map<String, String>
-    )
-
-    @POST("api/ordenes/enviar/{mesaId}")
-    suspend fun enviarPedido(
-        @Path("mesaId") mesaId: String,
-        @Body payload: @JvmSuppressWildcards Map<String, Any>
-    )
-
-    @POST("api/ordenes/editar/{id}")
-    suspend fun editarManual(
-        @Path("id") id: String,
-        @Body payload: @JvmSuppressWildcards Map<String, Any>
-    )
-
-    @PUT("api/menu/{id}")
-    suspend fun actualizarProducto(
-        @Path("id") id: String,
-        @Body producto: Producto
-    )
-
-    @POST("api/caja/pagar/{mesaId}")
-    suspend fun registrarPagoMesa(
-        @Path("mesaId") mesaId: String,
-        @Body metodoPago: Map<String, String>
-    )
-
-    @GET("api/estadisticas/hoy")
+    @GET("/api/estadisticas/dia")
     suspend fun getEstadisticasDelDia(): EstadisticasDia
 
-    // --- AQUÍ ESTÁN LAS NUEVAS RUTAS DE CAJA (Dentro de la interfaz) ---
+    @GET("/api/ordenes")
+    suspend fun getOrdenes(): List<OrdenBackend>
 
-    @POST("api/caja/abrir")
-    suspend fun abrirCaja(@Body sesionCaja: SesionCaja): retrofit2.Response<SesionCaja>
+    @POST("/api/ordenes/{mesaId}")
+    suspend fun enviarPedido(@Path("mesaId") mesaId: String, @Body payload: OrdenPayload): OrdenBackend
 
-    @POST("api/caja/pagar")
-    suspend fun registrarPago(@Body pago: Pago): retrofit2.Response<Pago>
+    @PATCH("/api/ordenes/{id}/estado")
+    suspend fun actualizarEstadoOrden(@Path("id") id: String, @Body estado: Map<String, String>): OrdenBackend
+
+    @POST("/api/ordenes/editar-pedido/{id}")
+    suspend fun editarManual(@Path("id") id: String, @Body payload: Map<String, @JvmSuppressWildcards Any>): OrdenBackend
+
+    @GET("/api/menu")
+    suspend fun getMenu(): List<Producto>
+
+    @POST("/api/menu")
+    suspend fun crearProducto(@Body producto: Producto): Producto
+
+    @PUT("/api/menu/{id}")
+    suspend fun actualizarProducto(@Path("id") id: String, @Body producto: Producto): Producto
+
+    @DELETE("/api/menu/{id}")
+    suspend fun eliminarProducto(@Path("id") id: String): Response<Unit>
 }
 
-// --- AQUÍ EMPIEZA EL CLIENTE (No se toca) ---
+// 🛡️ SOLUCIÓN: Motor de conexión integrado para evitar el error "Unresolved reference"
 object RetrofitClient {
-
-    private const val BASE_URL = "http://192.168.0.8:8080/"
-
-    private val logging = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
-    }
-
-    private val client = OkHttpClient.Builder()
-        .addInterceptor(logging)
-        .build()
+    // ⚠️ IMPORTANTE: Como usas tu Samsung S25 Ultra físico, 10.0.2.2 NO funcionará.
+    // Cambia esta IP por la IP IPv4 de la computadora donde corre tu Spring Boot (ej: "http://192.168.1.15:8080")
+    private const val BASE_URL = "http://10.59.152.72:8080"
 
     val apiService: ApiService by lazy {
         Retrofit.Builder()
             .baseUrl(BASE_URL)
-            .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(ApiService::class.java)
