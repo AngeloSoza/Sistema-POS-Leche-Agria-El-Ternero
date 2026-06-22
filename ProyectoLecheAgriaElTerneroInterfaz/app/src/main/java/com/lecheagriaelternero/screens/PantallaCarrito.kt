@@ -23,7 +23,6 @@ import com.lecheagriaelternero.model.Producto
 import com.lecheagriaelternero.viewmodel.MenuViewModel
 import java.util.UUID
 
-// Estructura de datos para parsear la orden en el editor
 data class ItemOrdenParseado(
     val idUnico: String,
     val cantidad: Int,
@@ -40,7 +39,6 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
     val menuReal by viewModel.menu.collectAsStateWithLifecycle()
 
     var notas by remember { mutableStateOf("") }
-
     var mostrarEditorOrden by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -63,7 +61,6 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
         Column(modifier = Modifier.padding(paddingValues).padding(16.dp).fillMaxSize()) {
 
             LazyColumn(modifier = Modifier.weight(1f)) {
-                // SECCIÓN 1: LO QUE YA ESTÁ PEDIDO EN LA BASE DE DATOS
                 ordenPrevia?.let { orden ->
                     item {
                         Surface(
@@ -102,7 +99,6 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
                     }
                 }
 
-                // SECCIÓN 2: PRODUCTOS NUEVOS EN EL CARRITO LOCAL
                 if (productosEnCarrito.isEmpty()) {
                     item {
                         Box(modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp), contentAlignment = Alignment.Center) {
@@ -118,17 +114,8 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = producto.nombre,
-                                        fontWeight = FontWeight.Medium,
-                                        fontSize = 16.sp
-                                    )
-                                    Text(
-                                        text = "C$ ${producto.precio}",
-                                        color = Color(0xFF1B6D24),
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp
-                                    )
+                                    Text(producto.nombre, fontWeight = FontWeight.Medium, fontSize = 16.sp)
+                                    Text("C$ ${producto.precio}", color = Color(0xFF1B6D24), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                 }
                                 IconButton(onClick = { viewModel.eliminarDelCarrito(producto) }) {
                                     Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color.Red)
@@ -136,12 +123,7 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
                             }
 
                             if (producto.descripcion.isNotBlank()) {
-                                Text(
-                                    text = "Nota: ${producto.descripcion}",
-                                    color = Color(0xFFD32F2F),
-                                    fontSize = 13.sp,
-                                    modifier = Modifier.padding(top = 4.dp)
-                                )
+                                Text("Nota: ${producto.descripcion}", color = Color(0xFFD32F2F), fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
                             }
                             HorizontalDivider(color = Color(0xFFEEEEEE), modifier = Modifier.padding(top = 8.dp))
                         }
@@ -175,7 +157,6 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
         }
     }
 
-    // EDITOR INTELIGENTE DE ORDEN
     val ordenActualSegura = ordenPrevia
 
     if (mostrarEditorOrden && ordenActualSegura != null) {
@@ -183,7 +164,6 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
         var notasGeneralesEdicion by remember { mutableStateOf("") }
         var totalCalculado by remember { mutableDoubleStateOf(0.0) }
 
-        // Extracción automática de precios y nombres al abrir el editor
         LaunchedEffect(mostrarEditorOrden) {
             val rawNotas = ordenActualSegura.notas ?: ""
             var itemsPart = rawNotas
@@ -199,10 +179,12 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
             val list = mutableListOf<ItemOrdenParseado>()
             var currentBlock = mutableListOf<String>()
 
+            // Analizador Léxico Inmune a fallos
             for (line in lines) {
-                if (line.startsWith("- ")) {
+                if (line.matches(Regex(".*?\\d+x\\s+.*"))) {
                     if (currentBlock.isNotEmpty()) {
-                        list.add(parsearBloque(currentBlock, menuReal))
+                        val parsed = parsearBloque(currentBlock, menuReal)
+                        if (parsed != null) list.add(parsed)
                     }
                     currentBlock = mutableListOf(line)
                 } else if (line.isNotBlank()) {
@@ -210,7 +192,8 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
                 }
             }
             if (currentBlock.isNotEmpty()) {
-                list.add(parsearBloque(currentBlock, menuReal))
+                val parsed = parsearBloque(currentBlock, menuReal)
+                if (parsed != null) list.add(parsed)
             }
 
             itemsParseados = list
@@ -222,12 +205,10 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
             onDismissRequest = { mostrarEditorOrden = false },
             properties = DialogProperties(usePlatformDefaultWidth = false),
             modifier = Modifier.fillMaxWidth(0.95f),
-            title = { Text("Editor Inteligente de Orden", fontWeight = FontWeight.Bold) },
+            title = { Text("Gestión de Cuenta y Pedidos", fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Eliminar un producto descontará su precio automáticamente del total.", fontSize = 12.sp, color = Color.Gray)
-
-                    Text("Productos en la Orden:", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text("Los productos eliminados se restarán automáticamente de la cuenta.", fontSize = 12.sp, color = Color.Gray)
 
                     Box(modifier = Modifier.weight(1f, fill = false).heightIn(max = 250.dp)) {
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -241,12 +222,12 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Column(modifier = Modifier.weight(1f)) {
+                                            // 🛡️ SOLUCIÓN: Solo mostramos nombre y precio
                                             Text("${item.cantidad}x ${item.nombre}", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                             Text("C$ ${item.precioCalculado}", color = Color(0xFF1B6D24), fontSize = 12.sp, fontWeight = FontWeight.Medium)
                                         }
                                         IconButton(
                                             onClick = {
-                                                // RESTA AUTOMÁTICA DEL PRECIO AL ELIMINAR
                                                 itemsParseados = itemsParseados.filter { it.idUnico != item.idUnico }
                                                 totalCalculado = (totalCalculado - item.precioCalculado).coerceAtLeast(0.0)
                                             }
@@ -269,26 +250,18 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
                         textStyle = LocalTextStyle.current.copy(fontSize = 12.sp)
                     )
 
-                    // TOTAL AUTOMÁTICO DE SÓLO LECTURA (Desactivado para escritura manual)
-                    OutlinedTextField(
-                        value = "C$ $totalCalculado",
-                        onValueChange = { },
-                        readOnly = true,
-                        enabled = false,
-                        label = { Text("Total Final (Automático)", fontWeight = FontWeight.Bold) },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            disabledTextColor = Color.Black,
-                            disabledBorderColor = Color(0xFF1B6D24),
-                            disabledLabelColor = Color(0xFF1B6D24)
-                        )
-                    )
+                    // 🛡️ SOLUCIÓN: Texto fijo e inmutable
+                    Surface(color = Color(0xFFE8F5E9), shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("TOTAL FINAL DE LA MESA:", fontWeight = FontWeight.Bold)
+                            Text("C$ $totalCalculado", fontWeight = FontWeight.Black, color = Color(0xFF1B6D24), fontSize = 18.sp)
+                        }
+                    }
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        // Reconstrucción del texto a enviar a la DB
                         val nuevoTextoNotas = buildString {
                             val itemsText = itemsParseados.joinToString("\n") { it.bloqueTextoOriginal }
                             append(itemsText)
@@ -304,36 +277,31 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
                     Text("Guardar Cambios")
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { mostrarEditorOrden = false }) { Text("Cancelar") }
-            }
+            dismissButton = { TextButton(onClick = { mostrarEditorOrden = false }) { Text("Cancelar") } }
         )
     }
 }
 
-// Función auxiliar para extraer el nombre y calcular el precio de un bloque de texto de la base de datos
-fun parsearBloque(lines: List<String>, menuReal: List<Producto>): ItemOrdenParseado {
+// Analizador Lexico Inmune a fallos de formato
+fun parsearBloque(lines: List<String>, menuReal: List<Producto>): ItemOrdenParseado? {
     val firstLine = lines.first()
-    val regex = Regex("- (\\d+)x (.*)")
+    val regex = Regex(".*?(\\d+)x\\s+(.*)")
     val match = regex.find(firstLine)
 
-    var cant = 1
-    var nombre = firstLine.replace("- ", "").trim()
-    var precioItem = 0.0
-
     if (match != null) {
-        cant = match.groupValues[1].toIntOrNull() ?: 1
-        nombre = match.groupValues[2].trim()
+        val cant = match.groupValues[1].toIntOrNull() ?: 1
+        val nombre = match.groupValues[2].trim()
+
         val prod = menuReal.find { it.nombre.equals(nombre, ignoreCase = true) }
-        if (prod != null) {
-            precioItem = prod.precio * cant
-        }
+        val precioItem = if (prod != null) prod.precio * cant else 0.0
+
+        return ItemOrdenParseado(
+            idUnico = UUID.randomUUID().toString(),
+            cantidad = cant,
+            nombre = nombre,
+            precioCalculado = precioItem,
+            bloqueTextoOriginal = lines.joinToString("\n")
+        )
     }
-    return ItemOrdenParseado(
-        idUnico = UUID.randomUUID().toString(),
-        cantidad = cant,
-        nombre = nombre,
-        precioCalculado = precioItem,
-        bloqueTextoOriginal = lines.joinToString("\n")
-    )
+    return null
 }

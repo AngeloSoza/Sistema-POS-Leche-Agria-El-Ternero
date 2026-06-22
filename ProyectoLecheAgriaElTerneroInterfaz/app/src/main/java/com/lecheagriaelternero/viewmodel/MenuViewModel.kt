@@ -112,7 +112,6 @@ class MenuViewModel : ViewModel() {
                 if (mesaId.isEmpty() || _carritoActual.value.isEmpty()) return@launch
 
                 val totalCarrito = _carritoActual.value.sumOf { it.precio }
-
                 val itemsLimpios = _carritoActual.value.map {
                     it.copy(
                         nombre = it.nombre.replace(" (Config)", "").trim(),
@@ -122,6 +121,7 @@ class MenuViewModel : ViewModel() {
 
                 val itemsAgrupados = itemsLimpios.groupBy { "${it.nombre.lowercase()}|${it.descripcion.lowercase()}" }
 
+                // MARCAMOS LO NUEVO CON UN EMOJI CLARO
                 val detalleNuevos = itemsAgrupados.entries.joinToString("\n") { (key, lista) ->
                     val cantidad = lista.size
                     val originalItem = lista.first()
@@ -129,13 +129,12 @@ class MenuViewModel : ViewModel() {
                     val desc = originalItem.descripcion
 
                     if (desc.isNotBlank() && desc != "null") {
-                        "- ${cantidad}x $nombre\n   $desc"
+                        "🔴 NUEVO: ${cantidad}x $nombre\n   $desc"
                     } else {
-                        "- ${cantidad}x $nombre"
+                        "🔴 NUEVO: ${cantidad}x $nombre"
                     }
                 }
 
-                // LÓGICA DE MEMORIA ABSOLUTA: Separar items viejos de notas viejas
                 val ordenPrevia = _ordenActivaMesa.value
                 var notasBase = ordenPrevia?.notas ?: ""
                 var notasGenViejas = ""
@@ -146,7 +145,12 @@ class MenuViewModel : ViewModel() {
                     notasGenViejas = partes.getOrNull(1)?.trim() ?: ""
                 }
 
-                // CONCATENACIÓN PERFECTA
+                // 🛡️ SOLUCIÓN: Si la orden estaba entregada, marcamos los items viejos
+                if (ordenPrevia?.estado == "ENTREGADO") {
+                    notasBase = notasBase.replace("🔴 NUEVO:", "✅ ENTREGADO:")
+                        .replace(Regex("^- ", RegexOption.MULTILINE), "✅ ENTREGADO: ")
+                }
+
                 val notaFinal = buildString {
                     if (notasBase.isNotBlank()) {
                         append(notasBase)
@@ -178,7 +182,6 @@ class MenuViewModel : ViewModel() {
                 RetrofitClient.apiService.enviarPedido(mesaId, payload)
                 vaciarCarrito()
 
-                // Actualización Inmediata
                 val ordenesActualizadas = RetrofitClient.apiService.getOrdenes()
                 _ordenesActivas.value = ordenesActualizadas
                 _ordenActivaMesa.value = ordenesActualizadas.find { it.mesa?.id?.toString() == mesaId && it.estado != "PAGADO" }

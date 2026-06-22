@@ -1,6 +1,5 @@
 package com.lecheagriaelternero.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -8,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,7 +27,6 @@ import kotlinx.coroutines.delay
 fun PantallaCocina(navController: NavController, viewModel: MenuViewModel) {
     val ordenesActivas by viewModel.ordenesActivas.collectAsStateWithLifecycle()
 
-    // SISTEMA DE REFRESCADO AUTOMÁTICO ULTRARRÁPIDO
     LaunchedEffect(Unit) {
         while(true) {
             viewModel.cargarOrdenes()
@@ -35,7 +34,6 @@ fun PantallaCocina(navController: NavController, viewModel: MenuViewModel) {
         }
     }
 
-    // FILTRO INTERACTIVO DE COCINA
     var filtroActual by remember { mutableStateOf("PENDIENTE") }
 
     val ordenesFiltradas = ordenesActivas.filter {
@@ -63,7 +61,6 @@ fun PantallaCocina(navController: NavController, viewModel: MenuViewModel) {
     ) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
 
-            // BARRA DE FILTROS
             ScrollableTabRow(
                 selectedTabIndex = if (filtroActual == "PENDIENTE") 0 else if (filtroActual == "ENTREGADO") 1 else 2,
                 containerColor = Color(0xFF1E1E1E),
@@ -150,7 +147,15 @@ fun OrdenCocinaCard(orden: OrdenBackend, viewModel: MenuViewModel) {
                     lineas.forEach { linea ->
                         if (linea.isNotBlank()) {
                             Row(modifier = Modifier.padding(vertical = 4.dp)) {
-                                if (linea.startsWith("- ")) {
+                                if (linea.contains("🔴 NUEVO:")) {
+                                    Icon(Icons.Default.Warning, contentDescription = null, tint = Color.Red, modifier = Modifier.size(20.dp).padding(top = 2.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(linea.replace("🔴 NUEVO:", "").trim(), fontWeight = FontWeight.Black, fontSize = 18.sp, color = Color.Red)
+                                } else if (linea.contains("✅ ENTREGADO:")) {
+                                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp).padding(top = 2.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(linea.replace("✅ ENTREGADO:", "").trim(), fontWeight = FontWeight.Medium, fontSize = 16.sp, color = Color.Gray)
+                                } else if (linea.startsWith("- ")) {
                                     Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF1B6D24), modifier = Modifier.size(20.dp).padding(top = 2.dp))
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(linea.substring(2), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF1E1E1E))
@@ -173,7 +178,7 @@ fun OrdenCocinaCard(orden: OrdenBackend, viewModel: MenuViewModel) {
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1E1E))
                 ) {
-                    Text("ORDEN LISTA PARA ENTREGAR ✅", fontSize = 16.sp, fontWeight = FontWeight.Black, color = Color.White)
+                    Text("ORDEN LISTA PARA ENTREGAR", fontSize = 16.sp, fontWeight = FontWeight.Black, color = Color.White)
                 }
             }
         }
