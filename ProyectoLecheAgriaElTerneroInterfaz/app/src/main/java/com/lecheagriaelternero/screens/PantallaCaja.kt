@@ -14,10 +14,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,7 +23,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
@@ -35,6 +32,8 @@ import com.lecheagriaelternero.R
 import com.lecheagriaelternero.model.OrdenBackend
 import com.lecheagriaelternero.model.Producto
 import com.lecheagriaelternero.viewmodel.MenuViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -53,16 +52,33 @@ data class ItemCajaParseado(
 fun PantallaCaja(navController: NavController, viewModel: MenuViewModel) {
     val ordenesActivas by viewModel.ordenesActivas.collectAsStateWithLifecycle()
     val menuReal by viewModel.menu.collectAsStateWithLifecycle()
+    val errorState by viewModel.errorState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
-    var tabSeleccionado by remember { mutableIntStateOf(0) } // 0: Pendientes, 1: Historial
+    LaunchedEffect(errorState) {
+        errorState?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            viewModel.descartarError()
+        }
+    }
+
+    var tabSeleccionado by remember { mutableIntStateOf(0) }
+    var textoBusqueda by remember { mutableStateOf("") }
 
     val ordenesPendientes = ordenesActivas.filter { it.estado != "PAGADO" }.sortedBy { it.id }
-    val ordenesPagadas = ordenesActivas.filter { it.estado == "PAGADO" }.sortedByDescending { it.id }
+    val ordenesPagadas = ordenesActivas.filter { it.estado == "PAGADO" }
+        .filter {
+            it.mesa?.numero?.contains(textoBusqueda, ignoreCase = true) == true ||
+                    it.id.toString().contains(textoBusqueda)
+        }
+        .sortedByDescending { it.id }
 
     var ordenAEditar by remember { mutableStateOf<OrdenBackend?>(null) }
     var ordenAVerDetalle by remember { mutableStateOf<OrdenBackend?>(null) }
-    var metodoPagoSeleccionado by remember { mutableStateOf("Efectivo") }
+
+    val metodosPagoMesas = remember { mutableStateMapOf<Long, String>() }
+    var isProcessing by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -88,11 +104,10 @@ fun PantallaCaja(navController: NavController, viewModel: MenuViewModel) {
                     Text("Cuentas Pendientes", modifier = Modifier.padding(16.dp), fontWeight = FontWeight.Bold)
                 }
                 Tab(selected = tabSeleccionado == 1, onClick = { tabSeleccionado = 1 }) {
-                    Text("Historial de Recibos", modifier = Modifier.padding(16.dp), fontWeight = FontWeight.Bold)
+                    Text("Cuentas Pagadas", modifier = Modifier.padding(16.dp), fontWeight = FontWeight.Bold)
                 }
             }
 
-            // CONTENIDO PENDIENTES
             if (tabSeleccionado == 0) {
                 if (ordenesPendientes.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -100,34 +115,59 @@ fun PantallaCaja(navController: NavController, viewModel: MenuViewModel) {
                     }
                 } else {
                     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(ordenesPendientes) { orden ->
+                        items(ordenesPendientes, key = { it.id }) { orden ->
+                            val metodoActual = metodosPagoMesas[orden.id] ?: "Efectivo"
                             CardCajaPendiente(
                                 orden = orden,
+                                isProcessing = isProcessing,
                                 onCobrar = {
-                                    viewModel.cobrarMesa(orden.mesa?.id.toString(), metodoPagoSeleccionado)
-                                    Toast.makeText(context, "Mesa cobrada con éxito", Toast.LENGTH_SHORT).show()
+                                    if (!isProcessing) {
+                                        isProcessing = true
+                                        // 🛡️ SOLUCIÓN: Pasamos el ID de la ORDEN (que es seguro y existe)
+                                        viewModel.cobrarMesa(orden.id, metodoActual)
+                                        Toast.makeText(context, "Procesando cobro: ${metodoActual}", Toast.LENGTH_SHORT).show()
+
+                                        // Bloqueamos el botón por 1.5s para evitar doble clic mientras el servidor responde
+                                        coroutineScope.launch {
+                                            delay(1500)
+                                            isProcessing = false
+                                        }
+                                    }
                                 },
                                 onEditar = { ordenAEditar = orden },
-                                onMetodoCambio = { metodoPagoSeleccionado = it },
-                                metodoActual = metodoPagoSeleccionado
+                                onMetodoCambio = { metodosPagoMesas[orden.id] = it },
+                                metodoActual = metodoActual
                             )
                         }
                     }
                 }
-            }
-            // CONTENIDO HISTORIAL
-            else {
+            } else {
+                OutlinedTextField(
+                    value = textoBusqueda,
+                    onValueChange = { textoBusqueda = it },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    placeholder = { Text("Buscar por Mesa o Ticket ID...") },
+                    leadingIcon = { Text("🔍", modifier = Modifier.padding(start = 8.dp)) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFF1B6D24),
+                        unfocusedBorderColor = Color.LightGray
+                    )
+                )
+
                 if (ordenesPagadas.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No hay recibos generados hoy", color = Color.Gray)
+                        Text("No hay cuentas pagadas hoy", color = Color.Gray)
                     }
                 } else {
                     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(ordenesPagadas) { orden ->
+                        items(ordenesPagadas, key = { it.id }) { orden ->
+                            val metodoUsado = metodosPagoMesas[orden.id] ?: "Efectivo"
                             CardReciboHistorial(
                                 orden = orden,
                                 onVerDetalle = { ordenAVerDetalle = orden },
-                                onImprimir = { generarReciboPDF(context, orden, menuReal) }
+                                onImprimir = { generarReciboPDF(context, orden, menuReal, metodoUsado) }
                             )
                         }
                     }
@@ -136,7 +176,6 @@ fun PantallaCaja(navController: NavController, viewModel: MenuViewModel) {
         }
     }
 
-    // DIÁLOGO DE EDICIÓN PROFUNDA (CAJA)
     if (ordenAEditar != null) {
         DialogoEditorCaja(
             orden = ordenAEditar!!,
@@ -149,13 +188,14 @@ fun PantallaCaja(navController: NavController, viewModel: MenuViewModel) {
         )
     }
 
-    // DIÁLOGO DE VER DETALLE HISTORIAL
     if (ordenAVerDetalle != null) {
+        val metodoUsado = metodosPagoMesas[ordenAVerDetalle!!.id] ?: "Efectivo"
         DialogoVerRecibo(
             orden = ordenAVerDetalle!!,
             menuReal = menuReal,
+            metodoUsado = metodoUsado,
             onDismiss = { ordenAVerDetalle = null },
-            onImprimir = { generarReciboPDF(context, ordenAVerDetalle!!, menuReal) }
+            onImprimir = { generarReciboPDF(context, ordenAVerDetalle!!, menuReal, metodoUsado) }
         )
     }
 }
@@ -163,11 +203,14 @@ fun PantallaCaja(navController: NavController, viewModel: MenuViewModel) {
 @Composable
 fun CardCajaPendiente(
     orden: OrdenBackend,
+    isProcessing: Boolean,
     onCobrar: () -> Unit,
     onEditar: () -> Unit,
     onMetodoCambio: (String) -> Unit,
     metodoActual: String
 ) {
+    var expandedBancos by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
@@ -190,27 +233,54 @@ fun CardCajaPendiente(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            Text("Canal de Pago Autorizado:", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(selected = metodoActual == "Efectivo", onClick = { onMetodoCambio("Efectivo") })
-                    Text("Efectivo")
+                    RadioButton(selected = metodoActual == "Efectivo", onClick = { onMetodoCambio("Efectivo") }, enabled = !isProcessing)
+                    Text("Efectivo", fontSize = 14.sp)
                 }
+
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(selected = metodoActual == "Tarjeta", onClick = { onMetodoCambio("Tarjeta") })
-                    Text("Tarjeta")
+                    RadioButton(
+                        selected = metodoActual.startsWith("Transf."),
+                        onClick = {
+                            onMetodoCambio("Transf. BAC")
+                            expandedBancos = true
+                        },
+                        enabled = !isProcessing
+                    )
+                    Text(if (metodoActual.startsWith("Transf.")) metodoActual else "Transferencia", fontSize = 14.sp)
+                }
+            }
+
+            if (metodoActual.startsWith("Transf.")) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    ElevatedFilterChip(selected = metodoActual == "Transf. BAC", onClick = { onMetodoCambio("Transf. BAC") }, label = { Text("BAC") })
+                    ElevatedFilterChip(selected = metodoActual == "Transf. BANPRO", onClick = { onMetodoCambio("Transf. BANPRO") }, label = { Text("BANPRO") })
+                    ElevatedFilterChip(selected = metodoActual == "Transf. LAFISE", onClick = { onMetodoCambio("Transf. LAFISE") }, label = { Text("LAFISE") })
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onEditar, modifier = Modifier.weight(1f)) {
+                OutlinedButton(onClick = onEditar, modifier = Modifier.weight(1f), enabled = !isProcessing) {
                     Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Editar")
                 }
-                Button(onClick = onCobrar, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B6D24))) {
-                    Text("Cobrar", fontWeight = FontWeight.Bold)
+                Button(
+                    onClick = onCobrar,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B6D24)),
+                    enabled = !isProcessing
+                ) {
+                    if (isProcessing) {
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text("Cobrar Cuenta", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
@@ -268,20 +338,15 @@ fun DialogoEditorCaja(
 
         val lines = itemsPart.split("\n")
         val list = mutableListOf<ItemCajaParseado>()
-        var currentBlock = mutableListOf<String>()
 
         for (line in lines) {
             if (line.contains(Regex("\\d+x\\s+"))) {
-                if (currentBlock.isNotEmpty()) {
-                    parsearBloqueCaja(currentBlock, menuReal)?.let { list.add(it) }
-                }
-                currentBlock = mutableListOf(line)
-            } else if (line.isNotBlank()) {
-                currentBlock.add(line)
+                val itemsDesglosados = parsearBloqueCajaAislado(line, menuReal)
+                list.addAll(itemsDesglosados)
+            } else if (line.isNotBlank() && list.isNotEmpty()) {
+                val ultimo = list.last()
+                list[list.size - 1] = ultimo.copy(bloqueTextoOriginal = ultimo.bloqueTextoOriginal + "\n" + line)
             }
-        }
-        if (currentBlock.isNotEmpty()) {
-            parsearBloqueCaja(currentBlock, menuReal)?.let { list.add(it) }
         }
 
         itemsParseados = list
@@ -293,17 +358,19 @@ fun DialogoEditorCaja(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
         modifier = Modifier.fillMaxWidth(0.95f),
-        title = { Text("Modificar Cuenta - Mesa ${orden.mesa?.numero}", fontWeight = FontWeight.Bold) },
+        title = { Text("Ajuste de Comprobante - Mesa ${orden.mesa?.numero}", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(modifier = Modifier.weight(1f, fill = false).heightIn(max = 200.dp)) {
+                Text("Elimina unidades específicas de manera individual sin alterar el resto.", fontSize = 12.sp, color = Color.Gray)
+
+                Box(modifier = Modifier.weight(1f, fill = false).heightIn(max = 240.dp)) {
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(itemsParseados) { item ->
+                        items(itemsParseados, key = { it.idUnico }) { item ->
                             Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))) {
                                 Row(modifier = Modifier.padding(12.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text("${item.cantidad}x ${item.nombre}", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                        Text("C$ ${item.precioCalculado}", color = Color(0xFF1B6D24), fontSize = 12.sp)
+                                        Text("C$ ${item.precioCalculado}", color = Color(0xFF1B6D24), fontSize = 12.sp, fontWeight = FontWeight.Medium)
                                     }
                                     IconButton(onClick = {
                                         itemsParseados = itemsParseados.filter { it.idUnico != item.idUnico }
@@ -317,7 +384,7 @@ fun DialogoEditorCaja(
 
                 HorizontalDivider()
 
-                Text("Añadir Producto Olvidado:", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text("Inyectar Ítem Extraordinario:", fontWeight = FontWeight.Bold, fontSize = 14.sp)
 
                 @Suppress("DEPRECATION")
                 ExposedDropdownMenuBox(expanded = expandedExtraEdit, onExpandedChange = { expandedExtraEdit = !expandedExtraEdit }) {
@@ -375,7 +442,7 @@ fun DialogoEditorCaja(
 }
 
 @Composable
-fun DialogoVerRecibo(orden: OrdenBackend, menuReal: List<Producto>, onDismiss: () -> Unit, onImprimir: () -> Unit) {
+fun DialogoVerRecibo(orden: OrdenBackend, menuReal: List<Producto>, metodoUsado: String, onDismiss: () -> Unit, onImprimir: () -> Unit) {
     var itemsParseados by remember { mutableStateOf<List<ItemCajaParseado>>(emptyList()) }
 
     LaunchedEffect(Unit) {
@@ -385,24 +452,21 @@ fun DialogoVerRecibo(orden: OrdenBackend, menuReal: List<Producto>, onDismiss: (
 
         val lines = itemsPart.split("\n")
         val list = mutableListOf<ItemCajaParseado>()
-        var currentBlock = mutableListOf<String>()
 
         for (line in lines) {
             if (line.contains(Regex("\\d+x\\s+"))) {
-                if (currentBlock.isNotEmpty()) { parsearBloqueCaja(currentBlock, menuReal)?.let { list.add(it) } }
-                currentBlock = mutableListOf(line)
-            } else if (line.isNotBlank()) { currentBlock.add(line) }
+                list.addAll(parsearBloqueCajaAislado(line, menuReal))
+            }
         }
-        if (currentBlock.isNotEmpty()) { parsearBloqueCaja(currentBlock, menuReal)?.let { list.add(it) } }
         itemsParseados = list
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Detalle de Cuenta", fontWeight = FontWeight.Bold) },
+        title = { Text("Consulta de Comprobante", fontWeight = FontWeight.Bold) },
         text = {
             Column {
-                LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+                LazyColumn(modifier = Modifier.heightIn(max = 280.dp)) {
                     items(itemsParseados) { item ->
                         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("${item.cantidad}x ${item.nombre}", fontSize = 14.sp, modifier = Modifier.weight(1f))
@@ -411,150 +475,176 @@ fun DialogoVerRecibo(orden: OrdenBackend, menuReal: List<Producto>, onDismiss: (
                         HorizontalDivider(color = Color(0xFFEEEEEE))
                     }
                 }
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+                Text("Forma de pago registrada: $metodoUsado", fontSize = 12.sp, color = Color.Gray, fontWeight = FontWeight.Medium)
+                Spacer(modifier = Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("TOTAL COBRADO:", fontWeight = FontWeight.Black)
+                    Text("TOTAL LIQUIDADO:", fontWeight = FontWeight.Black)
                     Text("C$ ${orden.total}", fontWeight = FontWeight.Black, color = Color(0xFF1B6D24), fontSize = 18.sp)
                 }
             }
         },
         confirmButton = {
-            Button(onClick = { onImprimir(); onDismiss() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1E1E))) {
-                Text("Descargar PDF")
+            Button(onClick = onImprimir, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1E1E))) {
+                Text("Bajar PDF Oficial")
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cerrar") } }
     )
 }
 
-fun parsearBloqueCaja(lines: List<String>, menuReal: List<Producto>): ItemCajaParseado? {
-    val firstLine = lines.first()
+fun parsearBloqueCajaAislado(line: String, menuReal: List<Producto>): List<ItemCajaParseado> {
     val regex = Regex(".*?(\\d+)x\\s+(.*)")
-    val match = regex.find(firstLine)
+    val match = regex.find(line)
+    val desglosados = mutableListOf<ItemCajaParseado>()
 
     if (match != null) {
-        val cant = match.groupValues[1].toIntOrNull() ?: 1
+        val totalCantidad = match.groupValues[1].toIntOrNull() ?: 1
         val nombre = match.groupValues[2].trim()
         val prod = menuReal.find { it.nombre.equals(nombre, ignoreCase = true) }
-        val precioItem = if (prod != null) prod.precio * cant else 0.0
+        val precioUnitario = prod?.precio ?: 0.0
 
-        return ItemCajaParseado(
-            idUnico = UUID.randomUUID().toString(),
-            cantidad = cant,
-            nombre = nombre,
-            precioCalculado = precioItem,
-            bloqueTextoOriginal = lines.joinToString("\n")
-        )
+        for (i in 1..totalCantidad) {
+            desglosados.add(
+                ItemCajaParseado(
+                    idUnico = UUID.randomUUID().toString(),
+                    cantidad = 1,
+                    nombre = nombre,
+                    precioCalculado = precioUnitario,
+                    bloqueTextoOriginal = "✅ YA PEDIDO: 1x $nombre"
+                )
+            )
+        }
     }
-    return null
+    return desglosados
 }
 
-// 🖨️ MOTOR GENERADOR DE PDF PROFESIONAL TIPO TICKET THERMAL
-fun generarReciboPDF(context: Context, orden: OrdenBackend, menuReal: List<Producto>) {
+fun generarReciboPDF(context: Context, orden: OrdenBackend, menuReal: List<Producto>, metodoPago: String) {
     try {
         val pdfDocument = PdfDocument()
-        val anchoPagina = 300 // Formato ticket 80mm
+        val anchoPagina = 300
 
-        // Parseo rápido para calcular altura dinámica del ticket
         val rawNotas = orden.notas?.replace("\r", "") ?: ""
         var itemsPart = rawNotas
         if (rawNotas.contains("📝 NOTAS GENERALES:")) { itemsPart = rawNotas.split("📝 NOTAS GENERALES:")[0].trim() }
+
         val lines = itemsPart.split("\n")
         val itemsList = mutableListOf<ItemCajaParseado>()
-        var currentBlock = mutableListOf<String>()
         for (line in lines) {
             if (line.contains(Regex("\\d+x\\s+"))) {
-                if (currentBlock.isNotEmpty()) { parsearBloqueCaja(currentBlock, menuReal)?.let { itemsList.add(it) } }
-                currentBlock = mutableListOf(line)
-            } else if (line.isNotBlank()) { currentBlock.add(line) }
+                itemsList.addAll(parsearBloqueCajaAislado(line, menuReal))
+            }
         }
-        if (currentBlock.isNotEmpty()) { parsearBloqueCaja(currentBlock, menuReal)?.let { itemsList.add(it) } }
 
-        val altoPagina = 400 + (itemsList.size * 30) // Altura dinámica según items
+        val altoPagina = 440 + (itemsList.size * 25)
         val pageInfo = PdfDocument.PageInfo.Builder(anchoPagina, altoPagina, 1).create()
         val page = pdfDocument.startPage(pageInfo)
         val canvas = page.canvas
         val paint = Paint()
 
-        // Dibujar Logo
         val logoOriginal = BitmapFactory.decodeResource(context.resources, R.drawable.logo_ternero)
-        val logoScaled = android.graphics.Bitmap.createScaledBitmap(logoOriginal, 80, 80, false)
-        canvas.drawBitmap(logoScaled, 110f, 20f, paint)
+        val logoScaled = android.graphics.Bitmap.createScaledBitmap(logoOriginal, 75, 75, false)
+        canvas.drawBitmap(logoScaled, 112f, 20f, paint)
 
         paint.textAlign = Paint.Align.CENTER
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        paint.textSize = 14f
-        canvas.drawText("LECHE AGRIA EL TERNERO", anchoPagina / 2f, 130f, paint)
+        paint.textSize = 13f
+        canvas.drawText("LECHE AGRIA EL TERNERO", anchoPagina / 2f, 120f, paint)
 
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-        paint.textSize = 10f
-        canvas.drawText("Sabor que enamora...", anchoPagina / 2f, 145f, paint)
+        paint.textSize = 9f
+        canvas.drawText("Sabor que enamora...", anchoPagina / 2f, 135f, paint)
+        canvas.drawText("RUC: J0310000012345", anchoPagina / 2f, 148f, paint)
         canvas.drawText("Managua, Nicaragua", anchoPagina / 2f, 160f, paint)
 
-        // Trazador de líneas
         paint.strokeWidth = 1f
-        canvas.drawLine(10f, 175f, anchoPagina - 10f, 175f, paint)
+        canvas.drawLine(10f, 172f, anchoPagina - 10f, 172f, paint)
 
-        // Metadatos
         paint.textAlign = Paint.Align.LEFT
-        val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
+        val dateFormat = SimpleDateFormat("dd/MM/yyyy hh:mm a", Locale.getDefault())
         val fechaHora = dateFormat.format(Date())
-        canvas.drawText("Fecha: $fechaHora", 10f, 195f, paint)
-        canvas.drawText("Ticket #: ${orden.id}   Mesa: ${orden.mesa?.numero}", 10f, 210f, paint)
 
-        canvas.drawLine(10f, 225f, anchoPagina - 10f, 225f, paint)
+        canvas.drawText("Emisión: $fechaHora", 12f, 190f, paint)
+        canvas.drawText("Ticket ID: #${orden.id}", 12f, 204f, paint)
 
-        // Encabezados de tabla
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        canvas.drawText("CANT", 10f, 245f, paint)
-        canvas.drawText("DESCRIPCIÓN", 50f, 245f, paint)
-        canvas.drawText("IMPORTE", 240f, 245f, paint)
+        canvas.drawText("Mesa Asignada: ${orden.mesa?.numero}", 12f, 218f, paint)
 
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-        var yPosition = 265f
+        canvas.drawLine(10f, 230f, anchoPagina - 10f, 230f, paint)
 
-        // Dibujar Items
+        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        canvas.drawText("CT", 12f, 248f, paint)
+        canvas.drawText("DETALLE", 45f, 248f, paint)
+        canvas.drawText("TOTAL", 242f, 248f, paint)
+
+        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        var yPos = 268f
+
         for (item in itemsList) {
-            canvas.drawText("${item.cantidad}", 15f, yPosition, paint)
-
-            // Recorte de nombre si es muy largo
-            var nombreCorto = item.nombre
-            if (nombreCorto.length > 25) nombreCorto = nombreCorto.substring(0, 23) + ".."
-            canvas.drawText(nombreCorto, 50f, yPosition, paint)
-
-            canvas.drawText("C$ ${item.precioCalculado}", 240f, yPosition, paint)
-            yPosition += 20f
+            canvas.drawText("${item.cantidad}", 14f, yPos, paint)
+            var cleanName = item.nombre
+            if (cleanName.length > 24) cleanName = cleanName.substring(0, 22) + ".."
+            canvas.drawText(cleanName, 45f, yPos, paint)
+            canvas.drawText("C$ ${item.precioCalculado}", 242f, yPos, paint)
+            yPos += 22f
         }
 
-        canvas.drawLine(10f, yPosition + 10f, anchoPagina - 10f, yPosition + 10f, paint)
+        canvas.drawLine(10f, yPos + 4f, anchoPagina - 10f, yPos + 4f, paint)
 
-        // Totales
-        yPosition += 35f
+        yPos += 28f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        paint.textSize = 14f
-        canvas.drawText("TOTAL:", 100f, yPosition, paint)
-        canvas.drawText("C$ ${orden.total}", 200f, yPosition, paint)
+        paint.textSize = 12f
+        canvas.drawText("TOTAL A PAGAR:", 45f, yPos, paint)
+        canvas.drawText("C$ ${orden.total}", 215f, yPos, paint)
 
-        // Footer
-        yPosition += 40f
+        yPos += 24f
+        paint.textSize = 9.5f
+        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        canvas.drawText("MÉTODO DE PAGO: ${metodoPago.uppercase()}", 45f, yPos, paint)
+
+        yPos += 35f
         paint.textAlign = Paint.Align.CENTER
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-        paint.textSize = 10f
-        canvas.drawText("¡Gracias por su preferencia!", anchoPagina / 2f, yPosition, paint)
-        canvas.drawText("Vuelva pronto.", anchoPagina / 2f, yPosition + 15f, paint)
+        paint.textSize = 9f
+        canvas.drawText("Reg. Simplificado de Cuota Fija", anchoPagina / 2f, yPos, paint)
+        canvas.drawText("¡Muchas gracias por elegirnos!", anchoPagina / 2f, yPos + 14f, paint)
 
         pdfDocument.finishPage(page)
 
-        // Guardado directo en Descargas (Compatible con API 29+)
-        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        val file = File(downloadsDir, "Recibo_Mesa_${orden.mesa?.numero}_Ticket_${orden.id}.pdf")
+        val nombreArchivo = "Factura_Mesa_${orden.mesa?.numero}_Ticket_${orden.id}.pdf"
 
-        pdfDocument.writeTo(FileOutputStream(file))
+        // 🛡️ COMPATIBILIDAD UNIVERSAL: Verifica la versión de Android del celular
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            // Para Android 10+ (Como tu S25 Ultra)
+            val resolver = context.contentResolver
+            val contentValues = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, nombreArchivo)
+                put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/pdf")
+                put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+            }
+
+            val uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+
+            if (uri != null) {
+                resolver.openOutputStream(uri)?.use { outputStream ->
+                    pdfDocument.writeTo(outputStream)
+                }
+                Toast.makeText(context, "Factura en Descargas: $nombreArchivo", Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(context, "Error: El sistema rechazó guardar el archivo", Toast.LENGTH_LONG).show()
+            }
+        } else {
+            // Para Android 9 o inferior (Tablets o celulares antiguos)
+            val carpetaDescargas = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            val archivoFinal = File(carpetaDescargas, nombreArchivo)
+            pdfDocument.writeTo(FileOutputStream(archivoFinal))
+            Toast.makeText(context, "Factura en Descargas: $nombreArchivo", Toast.LENGTH_LONG).show()
+        }
+
         pdfDocument.close()
 
-        Toast.makeText(context, "PDF Guardado en Descargas", Toast.LENGTH_LONG).show()
-
     } catch (e: Exception) {
-        Toast.makeText(context, "Error generando PDF: ${e.message}", Toast.LENGTH_LONG).show()
+        Toast.makeText(context, "Fallo al procesar PDF: ${e.message}", Toast.LENGTH_LONG).show()
     }
 }

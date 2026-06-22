@@ -87,7 +87,14 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
                                     }
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text(orden.notas ?: "Sin detalles", fontSize = 13.sp, color = Color.DarkGray)
+                                // 🛡️ MEJORA ESTÉTICA: Limpiamos los prefijos técnicos para el usuario final
+                                val notasLimpias = (orden.notas ?: "Sin detalles")
+                                    .replace("🔴 NUEVO:", "•")
+                                    .replace("✓", "✓")
+                                    .replace("✅ YA PEDIDO:", "✓")
+                                    .replace("✅ YA ENTREGADO:", "✓")
+
+                                Text(notasLimpias, fontSize = 13.sp, color = Color.DarkGray)
                                 Text("Consumo acumulado: C$ ${orden.total}", fontWeight = FontWeight.Bold, color = Color(0xFF1B6D24), modifier = Modifier.padding(top = 8.dp))
                             }
                         }

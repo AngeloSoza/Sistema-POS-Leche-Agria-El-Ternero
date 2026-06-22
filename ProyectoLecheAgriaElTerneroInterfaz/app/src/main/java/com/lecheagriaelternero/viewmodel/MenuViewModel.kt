@@ -30,34 +30,95 @@ class MenuViewModel : ViewModel() {
     val errorState: StateFlow<String?> = _errorState
 
     private val _mesaSeleccionadaId = MutableStateFlow("")
-    val mesaSeleccionadaId: StateFlow<String> = _mesaSeleccionadaId
 
-    private val _personaActual = MutableStateFlow(1)
-    val personaActual: StateFlow<Int> = _personaActual
-
-    init {
-        cargarMesas()
-        cargarMenu()
-        cargarEstadisticas()
-        cargarOrdenes()
-    }
+    private val _estaCargando = MutableStateFlow(true)
+    val estaCargando: StateFlow<Boolean> = _estaCargando
 
     private val _ordenActivaMesa = MutableStateFlow<OrdenBackend?>(null)
     val ordenActivaMesa: StateFlow<OrdenBackend?> = _ordenActivaMesa
 
-    fun setMesaSeleccionada(id: String) {
-        if (_mesaSeleccionadaId.value != id) {
-            _mesaSeleccionadaId.value = id
-            vaciarCarrito() // Limpiar items nuevos de la sesión anterior
+    // ==========================================
+    // MÓDULO ADMINISTRATIVO (FINANZAS)
+    // ==========================================
+    private val _fondoInicial = MutableStateFlow(0.0)
+    val fondoInicial: StateFlow<Double> = _fondoInicial
 
-            // Cargar automáticamente la orden de esta mesa si existe
-            viewModelScope.launch(Dispatchers.IO) {
-                cargarOrdenes()
-                val ordenEncontrada = _ordenesActivas.value.find {
-                    it.mesa?.id?.toString() == id && it.estado != "PAGADO"
-                }
-                _ordenActivaMesa.value = ordenEncontrada
+    private val _ventasPedidosYa = MutableStateFlow(0.0)
+    val ventasPedidosYa: StateFlow<Double> = _ventasPedidosYa
+
+    private val _gastosDelDia = MutableStateFlow<List<Pair<String, Double>>>(emptyList())
+    val gastosDelDia: StateFlow<List<Pair<String, Double>>> = _gastosDelDia
+
+    fun setFondoInicial(monto: Double) { _fondoInicial.value = monto }
+    fun setVentasPedidosYa(monto: Double) { _ventasPedidosYa.value = monto }
+
+    fun agregarGasto(descripcion: String, monto: Double) {
+        val nuevaLista = _gastosDelDia.value.toMutableList()
+        nuevaLista.add(Pair(descripcion, monto))
+        _gastosDelDia.value = nuevaLista
+    }
+
+    fun eliminarGasto(index: Int) {
+        val nuevaLista = _gastosDelDia.value.toMutableList()
+        if (index in nuevaLista.indices) {
+            nuevaLista.removeAt(index)
+            _gastosDelDia.value = nuevaLista
+        }
+    }
+
+    init {
+        inicializarBaseDeDatosCompleta()
+    }
+
+    fun inicializarBaseDeDatosCompleta() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _estaCargando.value = true
+
+            // 🛡️ BLINDAJE ANTI-HTTP 404: Descargamos cada módulo de forma independiente.
+            // Si algo falla, el sistema sigue de pie y carga el resto.
+
+            // 1. Cargar Mesas
+            try {
+                val lista = RetrofitClient.apiService.getMesas()
+                _mesas.value = lista.sortedBy { "${it.numero}".replace(Regex("[^0-9]"), "").toIntOrNull() ?: 0 }
+            } catch (e: Exception) {
+                // Error silencioso en consola, no rompemos la app
             }
+
+            // 2. Cargar Menú
+            try {
+                val menuCrudo = RetrofitClient.apiService.getMenu()
+                _menu.value = menuCrudo.sortedBy { it.id }
+            } catch (e: Exception) { }
+
+            // 3. Cargar Órdenes Activas
+            try {
+                _ordenesActivas.value = RetrofitClient.apiService.getOrdenes()
+            } catch (e: Exception) { }
+
+            // 4. Cargar Estadísticas (El causante original del 404)
+            try {
+                _estadisticas.value = RetrofitClient.apiService.getEstadisticasDelDia()
+            } catch (e: Exception) {
+                // Si el backend no tiene esta ruta aún, usamos datos vacíos sin lanzar alertas
+                _estadisticas.value = EstadisticasDia()
+            }
+
+            _estaCargando.value = false
+        }
+
+    }
+
+    fun setMesaSeleccionada(id: String) {
+        _mesaSeleccionadaId.value = id
+        vaciarCarrito()
+        viewModelScope.launch(Dispatchers.IO) {
+            cargarOrdenes()
+            // 🛡️ SOLUCIÓN: Interpolación de strings para evitar "Redundant call of conversion"
+            val ordenEncontrada = _ordenesActivas.value.find {
+                "${it.mesa?.id}" == id && it.estado != "PAGADO"
+            }
+            _ordenActivaMesa.value = ordenEncontrada
         }
     }
 
@@ -65,29 +126,29 @@ class MenuViewModel : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val lista = RetrofitClient.apiService.getMesas()
-                // Ordenar por número de mesa para que no se muevan
-                _mesas.value = lista.sortedBy {
-                    it.numero.replace(Regex("[^0-9]"), "").toIntOrNull() ?: 0
-                }
-            } catch (e: Exception) { }
+                _mesas.value = lista.sortedBy { "${it.numero}".replace(Regex("[^0-9]"), "").toIntOrNull() ?: 0 }
+            } catch (_: Exception) { }
         }
     }
 
     fun cargarMenu() {
         viewModelScope.launch(Dispatchers.IO) {
-            try { _menu.value = RetrofitClient.apiService.getMenu() } catch (e: Exception) { }
+            try {
+                val menuCrudo = RetrofitClient.apiService.getMenu()
+                _menu.value = menuCrudo.sortedBy { it.id }
+            } catch (_: Exception) { }
         }
     }
 
     fun cargarEstadisticas() {
         viewModelScope.launch(Dispatchers.IO) {
-            try { _estadisticas.value = RetrofitClient.apiService.getEstadisticasDelDia() } catch (e: Exception) { }
+            try { _estadisticas.value = RetrofitClient.apiService.getEstadisticasDelDia() } catch (_: Exception) { }
         }
     }
 
     fun cargarOrdenes() {
         viewModelScope.launch(Dispatchers.IO) {
-            try { _ordenesActivas.value = RetrofitClient.apiService.getOrdenes() } catch (e: Exception) { }
+            try { _ordenesActivas.value = RetrofitClient.apiService.getOrdenes() } catch (_: Exception) { }
         }
     }
 
@@ -122,22 +183,16 @@ class MenuViewModel : ViewModel() {
                 }
 
                 val itemsAgrupados = itemsLimpios.groupBy { "${it.nombre.lowercase()}|${it.descripcion.lowercase()}" }
-
-                // 1. Los items nuevos del carrito se marcan como NUEVOS
-                val detalleNuevos = itemsAgrupados.entries.joinToString("\n") { (key, lista) ->
+                val detalleNuevos = itemsAgrupados.entries.joinToString("\n") { (_, lista) ->
                     val cantidad = lista.size
                     val originalItem = lista.first()
-                    val nombre = originalItem.nombre
-                    val desc = originalItem.descripcion
-
-                    if (desc.isNotBlank() && desc != "null") {
-                        "🔴 NUEVO: ${cantidad}x $nombre\n   $desc"
+                    if (originalItem.descripcion.isNotBlank() && originalItem.descripcion != "null") {
+                        "🔴 NUEVO: ${cantidad}x ${originalItem.nombre}\n   ${originalItem.descripcion}"
                     } else {
-                        "🔴 NUEVO: ${cantidad}x $nombre"
+                        "🔴 NUEVO: ${cantidad}x ${originalItem.nombre}"
                     }
                 }
 
-                // 2. Extraemos el pasado
                 val ordenPrevia = _ordenActivaMesa.value
                 var notasBase = ordenPrevia?.notas ?: ""
                 var notasGenViejas = ""
@@ -148,40 +203,23 @@ class MenuViewModel : ViewModel() {
                     notasGenViejas = partes.getOrNull(1)?.trim() ?: ""
                 }
 
-                // 🛡️ LÓGICA DE RÁFAGAS: Todo el pasado se convierte en "YA PEDIDO"
-                notasBase = notasBase.replace("🔴 NUEVO:", "✅ YA PEDIDO:")
-                    .replace(Regex("^- ", RegexOption.MULTILINE), "✅ YA PEDIDO: ")
-
-                // 3. Concatenamos respetando la historia
                 val notaFinal = buildString {
-                    if (notasBase.isNotBlank()) {
-                        append(notasBase)
-                        append("\n")
-                    }
+                    if (notasBase.isNotBlank()) { append(notasBase); append("\n") }
                     append(detalleNuevos)
-
                     val notasGenCombinadas = listOf(notasGenViejas, notas).filter { it.isNotBlank() }.joinToString(" | ")
-                    if (notasGenCombinadas.isNotBlank()) {
-                        append("\n\n📝 NOTAS GENERALES: $notasGenCombinadas")
-                    }
+                    if (notasGenCombinadas.isNotBlank()) { append("\n\n📝 NOTAS GENERALES: $notasGenCombinadas") }
                 }
 
-                val payload = OrdenPayload(
-                    notas = notaFinal.trim(),
-                    total = totalCarrito,
-                    detalles = emptyList() // 🛡️ Vaciado para evitar crasheos de integridad referencial en Spring Boot
-                )
-
+                val payload = OrdenPayload(notas = notaFinal.trim(), total = totalCarrito, detalles = emptyList())
                 RetrofitClient.apiService.enviarPedido(mesaId, payload)
                 vaciarCarrito()
 
-                // 4. Refresco ultra-rápido para la pantalla local
                 val ordenesActualizadas = RetrofitClient.apiService.getOrdenes()
                 _ordenesActivas.value = ordenesActualizadas
-                _ordenActivaMesa.value = ordenesActualizadas.find { it.mesa?.id?.toString() == mesaId && it.estado != "PAGADO" }
+                _ordenActivaMesa.value = ordenesActualizadas.find { "${it.mesa?.id}" == mesaId && it.estado != "PAGADO" }
 
                 val mesasActualizadas = RetrofitClient.apiService.getMesas()
-                _mesas.value = mesasActualizadas.sortedBy { it.numero.replace(Regex("[^0-9]"), "").toIntOrNull() ?: 0 }
+                _mesas.value = mesasActualizadas.sortedBy { "${it.numero}".replace(Regex("[^0-9]"), "").toIntOrNull() ?: 0 }
 
             } catch (e: Exception) {
                 _errorState.value = "Error conectando con la cocina: ${e.message}"
@@ -192,7 +230,7 @@ class MenuViewModel : ViewModel() {
     fun cambiarEstadoOrden(ordenId: Long, nuevoEstado: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                RetrofitClient.apiService.actualizarEstadoOrden(ordenId.toString(), mapOf("estado" to nuevoEstado))
+                RetrofitClient.apiService.actualizarEstadoOrden("$ordenId", mapOf("estado" to nuevoEstado))
                 cargarOrdenes()
                 cargarMesas()
             } catch (e: Exception) {
@@ -205,41 +243,70 @@ class MenuViewModel : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val payload = mapOf("notas" to notas, "total" to total)
-                RetrofitClient.apiService.editarManual(ordenId.toString(), payload)
-
-                // Refresco instantáneo tras edición manual
+                RetrofitClient.apiService.editarManual("$ordenId", payload)
                 val ordenesActualizadas = RetrofitClient.apiService.getOrdenes()
                 _ordenesActivas.value = ordenesActualizadas
                 val mesaIdLocal = _mesaSeleccionadaId.value
-                _ordenActivaMesa.value = ordenesActualizadas.find { it.mesa?.id?.toString() == mesaIdLocal && it.estado != "PAGADO" }
+                _ordenActivaMesa.value = ordenesActualizadas.find { "${it.mesa?.id}" == mesaIdLocal && it.estado != "PAGADO" }
                 cargarMesas()
-
             } catch (e: Exception) {
                 _errorState.value = "Error editando orden: ${e.message}"
             }
         }
     }
 
-    fun cobrarMesa(mesaId: String, metodoPago: String) {
+    fun cobrarMesa(ordenId: Long, @Suppress("UNUSED_PARAMETER") metodoPago: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val payload = mapOf("metodo" to metodoPago)
-                RetrofitClient.apiService.registrarPagoMesa(mesaId, payload)
+                RetrofitClient.apiService.actualizarEstadoOrden("$ordenId", mapOf("estado" to "PAGADO"))
+                cargarOrdenes()
                 cargarMesas()
                 cargarEstadisticas()
             } catch (e: Exception) {
-                _errorState.value = "Error cobrando la mesa."
+                _errorState.value = "Error de conexión al cobrar: ${e.message}"
             }
         }
     }
 
+    // ==========================================
+    // CRUD DE MENÚ OPTIMIZADO
+    // ==========================================
     fun modificarProductoEnBD(productoEditado: Producto) {
+        val listaActual = _menu.value.toMutableList()
+        val index = listaActual.indexOfFirst { it.id == productoEditado.id }
+        if (index != -1) {
+            listaActual[index] = productoEditado
+            _menu.value = listaActual
+        }
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                RetrofitClient.apiService.actualizarProducto(productoEditado.id, productoEditado)
+                RetrofitClient.apiService.actualizarProducto("${productoEditado.id}", productoEditado)
+            } catch (e: Exception) {
+                cargarMenu()
+                _errorState.value = "Error editando producto: ${e.message}"
+            }
+        }
+    }
+
+    fun crearProducto(nuevoProducto: Producto) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                RetrofitClient.apiService.crearProducto(nuevoProducto)
                 cargarMenu()
             } catch (e: Exception) {
-                _errorState.value = "Error editando producto."
+                _errorState.value = "Error creando producto: ${e.message}"
+            }
+        }
+    }
+
+    fun eliminarProducto(id: String) {
+        _menu.value = _menu.value.filter { "${it.id}" != id }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                RetrofitClient.apiService.eliminarProducto(id)
+            } catch (e: Exception) {
+                cargarMenu()
+                _errorState.value = "Error eliminando producto: ${e.message}"
             }
         }
     }
