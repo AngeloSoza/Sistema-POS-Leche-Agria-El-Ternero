@@ -1,5 +1,6 @@
 package com.lecheagriaelternero.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -14,10 +15,13 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset // 🛡️ IMPORTACIÓN PARA EL INDICADOR CORREGIDA
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -25,6 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -55,36 +60,54 @@ fun PantallaAdminDashboard(navController: NavController, viewModel: MenuViewMode
     val ventasLocal = ordenesPagadasHoy.sumOf { it.total }
     val totalGastos = gastosDelDia.sumOf { it.second }
 
-    // 🧮 FÓRMULA EXACTA DE ARQUEO:
+    // 🧮 FÓRMULA EXACTA DE ARQUEO ORIGINAL:
     val ventasTotalesDia = ventasLocal + ventasPedidosYa
     val sumaBase = ventasTotalesDia + fondoInicial
     val efectivoEsperadoEnCaja = sumaBase - ventasPedidosYa - transferenciasDia - totalGastos
 
-    val fechaActual = SimpleDateFormat("EEEE, dd 'de' MMMM", Locale.forLanguageTag("es-NI")).format(Date()).replaceFirstChar { it.uppercase() }
+    val fechaActual = remember { SimpleDateFormat("EEEE, dd 'de' MMMM", Locale.forLanguageTag("es-NI")).format(Date()).replaceFirstChar { it.uppercase() } }
+
+    val bgApp = remember { Color(0xFFF8F9FA) }
+    val textPrimary = remember { Color(0xFF1A1C1E) }
 
     Scaffold(
+        containerColor = bgApp,
         topBar = {
             TopAppBar(
-                title = { Text("Administración Central", fontWeight = FontWeight.Black) },
+                title = { Text("Administración Central", fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = textPrimary) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = textPrimary)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFFF5F5F5))
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = bgApp)
             )
         }
     ) { paddingValues ->
-        Column(modifier = Modifier.fillMaxSize().padding(paddingValues).background(Color(0xFFFAFAFA))) {
+        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
 
-            PrimaryTabRow(
+            TabRow(
                 selectedTabIndex = tabSeleccionado,
-                containerColor = Color(0xFF1E1E1E),
-                contentColor = Color.White
+                containerColor = bgApp,
+                contentColor = textPrimary,
+                indicator = { tabPositions ->
+                    TabRowDefaults.SecondaryIndicator(
+                        modifier = Modifier.tabIndicatorOffset(tabPositions[tabSeleccionado]),
+                        color = textPrimary,
+                        height = 3.dp
+                    )
+                },
+                divider = { HorizontalDivider(color = Color(0xFFE5E7EB)) }
             ) {
-                Tab(selected = tabSeleccionado == 0, onClick = { tabSeleccionado = 0 }) { Text("Arqueo Caja", modifier = Modifier.padding(16.dp), fontWeight = FontWeight.Bold) }
-                Tab(selected = tabSeleccionado == 1, onClick = { tabSeleccionado = 1 }) { Text("Analíticas", modifier = Modifier.padding(16.dp), fontWeight = FontWeight.Bold) }
-                Tab(selected = tabSeleccionado == 2, onClick = { tabSeleccionado = 2 }) { Text("Gestión Menú", modifier = Modifier.padding(16.dp), fontWeight = FontWeight.Bold) }
+                Tab(selected = tabSeleccionado == 0, onClick = { tabSeleccionado = 0 }) {
+                    Text("Arqueo Caja", modifier = Modifier.padding(16.dp), fontWeight = if(tabSeleccionado == 0) FontWeight.Black else FontWeight.Medium)
+                }
+                Tab(selected = tabSeleccionado == 1, onClick = { tabSeleccionado = 1 }) {
+                    Text("Analíticas", modifier = Modifier.padding(16.dp), fontWeight = if(tabSeleccionado == 1) FontWeight.Black else FontWeight.Medium)
+                }
+                Tab(selected = tabSeleccionado == 2, onClick = { tabSeleccionado = 2 }) {
+                    Text("Gestión Menú", modifier = Modifier.padding(16.dp), fontWeight = if(tabSeleccionado == 2) FontWeight.Black else FontWeight.Medium)
+                }
             }
 
             when (tabSeleccionado) {
@@ -114,66 +137,85 @@ fun VistaArqueoCaja(
 ) {
     var mostrarDialogoGasto by remember { mutableStateOf(false) }
 
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item { Text(fecha, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Gray) }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item { Text(fecha, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF6C757D)) }
 
         item {
-            Card(elevation = CardDefaults.cardElevation(2.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F8E9))) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Color(0xFFC8E6C9)),
+                shape = RoundedCornerShape(16.dp)
+            ) {
                 Column(modifier = Modifier.padding(20.dp)) {
-                    Text("1. SUMA DE INGRESOS", fontWeight = FontWeight.Black, fontSize = 16.sp, color = Color(0xFF1B6D24))
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFFC8E6C9))
+                    Text("1. SUMA DE INGRESOS", fontWeight = FontWeight.Black, fontSize = 15.sp, color = Color(0xFF217128), letterSpacing = 1.sp)
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFFE8F5E9))
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Ventas Restaurante:", fontWeight = FontWeight.Medium)
-                        Text("C$ $ventasLocal", fontWeight = FontWeight.Black, fontSize = 16.sp)
+                        Text("Ventas Restaurante:", fontWeight = FontWeight.Medium, color = Color(0xFF495057))
+                        Text("C$ $ventasLocal", fontWeight = FontWeight.Black, fontSize = 16.sp, color = Color(0xFF1A1C1E))
                     }
                     Spacer(modifier = Modifier.height(12.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Ventas PeYa:", fontWeight = FontWeight.Medium)
+                        Text("Ventas PeYa:", fontWeight = FontWeight.Medium, color = Color(0xFF495057))
                         OutlinedTextField(
                             value = if(pedidosYa == 0.0) "" else pedidosYa.toString(),
                             onValueChange = { viewModel.setVentasPedidosYa(it.toDoubleOrNull() ?: 0.0) },
-                            modifier = Modifier.width(130.dp).height(50.dp),
+                            modifier = Modifier.width(140.dp).height(52.dp),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             singleLine = true,
-                            prefix = { Text("C$") }
+                            prefix = { Text("C$ ", color = Color.Gray) },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = Color(0xFFE0E0E0))
                         )
                     }
                     Spacer(modifier = Modifier.height(12.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Caja Inicial:", fontWeight = FontWeight.Medium)
+                        Text("Caja Inicial:", fontWeight = FontWeight.Medium, color = Color(0xFF495057))
                         OutlinedTextField(
                             value = if(fondo == 0.0) "" else fondo.toString(),
                             onValueChange = { viewModel.setFondoInicial(it.toDoubleOrNull() ?: 0.0) },
-                            modifier = Modifier.width(130.dp).height(50.dp),
+                            modifier = Modifier.width(140.dp).height(52.dp),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             singleLine = true,
-                            prefix = { Text("C$") }
+                            prefix = { Text("C$ ", color = Color.Gray) },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = Color(0xFFE0E0E0))
                         )
                     }
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFFC8E6C9))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFFE8F5E9))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("TOTAL ACUMULADO:", fontWeight = FontWeight.Bold, color = Color(0xFF1B6D24))
-                        Text("C$ ${ventasTotales + fondo}", fontWeight = FontWeight.Black, fontSize = 18.sp, color = Color(0xFF1B6D24))
+                        Text("TOTAL ACUMULADO:", fontWeight = FontWeight.ExtraBold, color = Color(0xFF217128), fontSize = 14.sp)
+                        Text("C$ ${ventasTotales + fondo}", fontWeight = FontWeight.Black, fontSize = 20.sp, color = Color(0xFF217128))
                     }
                 }
             }
         }
 
         item {
-            Card(elevation = CardDefaults.cardElevation(2.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Color(0xFFFFCDD2)),
+                shape = RoundedCornerShape(16.dp)
+            ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("2. DESCUENTOS Y COMPRAS", fontWeight = FontWeight.Black, fontSize = 16.sp, color = Color(0xFFD32F2F))
-                        IconButton(onClick = { mostrarDialogoGasto = true }, modifier = Modifier.background(Color.White, RoundedCornerShape(8.dp)).size(32.dp)) {
+                        Text("2. DESCUENTOS Y COMPRAS", fontWeight = FontWeight.Black, fontSize = 15.sp, color = Color(0xFFD32F2F), letterSpacing = 1.sp)
+                        IconButton(
+                            onClick = { mostrarDialogoGasto = true },
+                            modifier = Modifier.background(Color(0xFFFFF0F2), RoundedCornerShape(8.dp)).size(32.dp)
+                        ) {
                             Icon(Icons.Default.Add, contentDescription = "Añadir", tint = Color(0xFFD32F2F), modifier = Modifier.size(20.dp))
                         }
                     }
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFFFFCDD2))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Color(0xFFFFF0F2))
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("- PeYa:", color = Color(0xFFD32F2F), fontWeight = FontWeight.Medium)
-                        Text("C$ $pedidosYa", fontWeight = FontWeight.Bold, color = Color(0xFFD32F2F))
+                        Text("- Retiro PeYa:", color = Color(0xFFD32F2F), fontWeight = FontWeight.Medium)
+                        Text("C$ $pedidosYa", fontWeight = FontWeight.Bold, color = Color(0xFFD32F2F), fontSize = 16.sp)
                     }
                     Spacer(modifier = Modifier.height(12.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -181,24 +223,37 @@ fun VistaArqueoCaja(
                         OutlinedTextField(
                             value = if(transferencias == 0.0) "" else transferencias.toString(),
                             onValueChange = { onTransferenciasChange(it.toDoubleOrNull() ?: 0.0) },
-                            modifier = Modifier.width(130.dp).height(50.dp),
+                            modifier = Modifier.width(140.dp).height(52.dp),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             singleLine = true,
-                            prefix = { Text("C$") }
+                            prefix = { Text("C$ ", color = Color.Gray) },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedBorderColor = Color(0xFFFFCDD2),
+                                focusedBorderColor = Color(0xFFD32F2F)
+                            )
                         )
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text("- Compras:", color = Color(0xFFD32F2F), fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("- Compras Locales:", color = Color(0xFFD32F2F), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     if (gastos.isEmpty()) {
-                        Text("  (Ninguna compra registrada)", color = Color.Gray, fontSize = 12.sp, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
+                        Text("No se han registrado compras.", color = Color.Gray, fontSize = 13.sp, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
                     } else {
-                        gastos.forEachIndexed { index, gasto ->
-                            // 🛡️ SOLUCIÓN APLICADA: Separación de los paddings
-                            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).padding(start = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                Text(gasto.first, modifier = Modifier.weight(1f), fontSize = 14.sp)
-                                Text("C$ ${gasto.second}", fontWeight = FontWeight.Bold, color = Color(0xFFD32F2F), fontSize = 14.sp)
-                                IconButton(onClick = { viewModel.eliminarGasto(index) }, modifier = Modifier.size(24.dp)) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color.Gray, modifier = Modifier.size(16.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            gastos.forEachIndexed { index, gasto ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().background(Color(0xFFF8F9FA), RoundedCornerShape(8.dp)).padding(start = 12.dp, top = 4.dp, bottom = 4.dp, end = 4.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(gasto.first, modifier = Modifier.weight(1f), fontSize = 14.sp, color = Color(0xFF495057))
+                                    Text("C$ ${gasto.second}", fontWeight = FontWeight.Bold, color = Color(0xFFD32F2F), fontSize = 14.sp)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    IconButton(onClick = { viewModel.eliminarGasto(index) }, modifier = Modifier.size(28.dp)) {
+                                        Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color.Gray, modifier = Modifier.size(18.dp))
+                                    }
                                 }
                             }
                         }
@@ -208,13 +263,17 @@ fun VistaArqueoCaja(
         }
 
         item {
-            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)), elevation = CardDefaults.cardElevation(4.dp)) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1C1E)),
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.padding(top = 8.dp)
+            ) {
                 Column(modifier = Modifier.padding(24.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("CUADRE: EFECTIVO FÍSICO ESPERADO", color = Color.LightGray, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                    Text("CUADRE FINAL", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("C$ $esperado", color = Color(0xFF4CAF50), fontSize = 40.sp, fontWeight = FontWeight.Black)
+                    Text("C$ $esperado", color = Color(0xFFA0F399), fontSize = 42.sp, fontWeight = FontWeight.Black)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("Debe coincidir exactamente con los billetes de la caja.", color = Color.Gray, fontSize = 11.sp, textAlign = TextAlign.Center)
+                    Text("Efectivo físico que debe haber en caja.", color = Color(0xFF6C757D), fontSize = 13.sp, textAlign = TextAlign.Center)
                 }
             }
             Spacer(modifier = Modifier.height(40.dp))
@@ -226,23 +285,41 @@ fun VistaArqueoCaja(
         var monto by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { mostrarDialogoGasto = false },
-            title = { Text("Registrar Compra", fontWeight = FontWeight.Bold) },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(24.dp),
+            title = { Text("Registrar Compra", fontWeight = FontWeight.Black, fontSize = 20.sp) },
             text = {
-                Column {
-                    OutlinedTextField(value = desc, onValueChange = { desc = it }, label = { Text("Descripción (ej. Leche Agria, Tortillas)") }, singleLine = true)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = monto, onValueChange = { monto = it }, label = { Text("Monto en C$") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = desc, onValueChange = { desc = it },
+                        label = { Text("Descripción (ej. Insumos)") },
+                        singleLine = true, modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    OutlinedTextField(
+                        value = monto, onValueChange = { monto = it },
+                        label = { Text("Monto (C$)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true, modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
                 }
             },
             confirmButton = {
-                Button(onClick = {
-                    if (desc.isNotBlank() && monto.toDoubleOrNull() != null) {
-                        viewModel.agregarGasto(desc, monto.toDouble())
-                        mostrarDialogoGasto = false
-                    }
-                }) { Text("Guardar") }
+                Button(
+                    onClick = {
+                        if (desc.isNotBlank() && monto.toDoubleOrNull() != null) {
+                            viewModel.agregarGasto(desc, monto.toDouble())
+                            mostrarDialogoGasto = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF217128)),
+                    shape = RoundedCornerShape(50)
+                ) { Text("Guardar", fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp)) }
             },
-            dismissButton = { TextButton(onClick = { mostrarDialogoGasto = false }) { Text("Cancelar") } }
+            dismissButton = {
+                TextButton(onClick = { mostrarDialogoGasto = false }) { Text("Cancelar", color = Color.Gray) }
+            }
         )
     }
 }
@@ -254,70 +331,91 @@ fun VistaAnaliticasProfesional(fecha: String, ventasLocal: Double, ventasPedidos
     var verTicketsDialog by remember { mutableStateOf(false) }
     var ordenDetalle by remember { mutableStateOf<OrdenBackend?>(null) }
     val context = LocalContext.current
+    val textPrimary = Color(0xFF1A1C1E)
 
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
+    ) {
         item {
-            Text("Rendimiento: $fecha", fontSize = 18.sp, fontWeight = FontWeight.Black)
-            Spacer(modifier = Modifier.height(24.dp))
+            Text("Resumen del $fecha", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = Color.Gray)
+            Spacer(modifier = Modifier.height(16.dp))
 
-            Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                if (totalGlobal > 0) {
-                    val angleLocal = (ventasLocal / totalGlobal).toFloat() * 360f
-                    val anglePY = (ventasPedidosYa / totalGlobal).toFloat() * 360f
-                    Canvas(modifier = Modifier.size(160.dp)) {
-                        drawArc(color = Color(0xFF1B6D24), startAngle = -90f, sweepAngle = angleLocal, useCenter = false, style = Stroke(width = 50f, cap = StrokeCap.Butt))
-                        drawArc(color = Color(0xFFD32F2F), startAngle = -90f + angleLocal, sweepAngle = anglePY, useCenter = false, style = Stroke(width = 50f, cap = StrokeCap.Butt))
+            Surface(
+                color = Color.White,
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Box(modifier = Modifier.fillMaxWidth().height(220.dp).padding(16.dp), contentAlignment = Alignment.Center) {
+                    if (totalGlobal > 0) {
+                        val angleLocal = (ventasLocal / totalGlobal).toFloat() * 360f
+                        val anglePY = (ventasPedidosYa / totalGlobal).toFloat() * 360f
+                        Canvas(modifier = Modifier.size(150.dp)) {
+                            drawArc(color = Color(0xFF217128), startAngle = -90f, sweepAngle = angleLocal, useCenter = false, style = Stroke(width = 45f, cap = StrokeCap.Round))
+                            drawArc(color = Color(0xFFD32F2F), startAngle = -90f + angleLocal, sweepAngle = anglePY, useCenter = false, style = Stroke(width = 45f, cap = StrokeCap.Round))
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("INGRESOS", fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                            Text("C$ $totalGlobal", fontSize = 22.sp, fontWeight = FontWeight.Black, color = textPrimary)
+                        }
+                    } else {
+                        Text("No hay datos suficientes.", color = Color.Gray, fontSize = 14.sp)
                     }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("TOTAL", fontSize = 12.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
-                        Text("C$ $totalGlobal", fontSize = 22.sp, fontWeight = FontWeight.Black)
-                    }
-                } else {
-                    Text("Sin datos de ventas", color = Color.Gray)
                 }
             }
-            Spacer(modifier = Modifier.height(24.dp))
         }
 
         item {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Card(modifier = Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(2.dp)) {
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(modifier = Modifier.size(12.dp).background(Color(0xFF1B6D24), CircleShape))
+                            Box(modifier = Modifier.size(10.dp).background(Color(0xFF217128), CircleShape))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Restaurante", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text("Local", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                         }
-                        Text("C$ $ventasLocal", fontSize = 20.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(top = 8.dp))
+                        Text("C$ $ventasLocal", fontSize = 22.sp, fontWeight = FontWeight.Black, color = textPrimary, modifier = Modifier.padding(top = 8.dp))
                     }
                 }
-                Card(modifier = Modifier.weight(1f), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(2.dp)) {
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(modifier = Modifier.size(12.dp).background(Color(0xFFD32F2F), CircleShape))
+                            Box(modifier = Modifier.size(10.dp).background(Color(0xFFD32F2F), CircleShape))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("PedidosYa", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text("PeYa", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                         }
-                        Text("C$ $ventasPedidosYa", fontSize = 20.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(top = 8.dp))
+                        Text("C$ $ventasPedidosYa", fontSize = 22.sp, fontWeight = FontWeight.Black, color = textPrimary, modifier = Modifier.padding(top = 8.dp))
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(24.dp))
         }
 
         item {
             Card(
-                modifier = Modifier.fillMaxWidth().clickable { verTicketsDialog = true },
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable { verTicketsDialog = true },
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
-                elevation = CardDefaults.cardElevation(2.dp)
+                border = BorderStroke(1.dp, Color(0xFFFFE0B2)),
+                shape = RoundedCornerShape(16.dp)
             ) {
                 Row(modifier = Modifier.padding(20.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column {
-                        Text("Tickets del Día", fontSize = 14.sp, color = Color(0xFFE65100), fontWeight = FontWeight.Bold)
-                        Text("${ordenesPagadas.size} comprobantes", fontSize = 24.sp, fontWeight = FontWeight.Black, color = Color(0xFFE65100))
+                        Text("Historial de Tickets", fontSize = 14.sp, color = Color(0xFFE65100), fontWeight = FontWeight.Bold)
+                        Text("${ordenesPagadas.size} emitidos", fontSize = 24.sp, fontWeight = FontWeight.Black, color = Color(0xFFE65100))
                     }
-                    Button(onClick = { verTicketsDialog = true }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100))) {
-                        Text("Ver Recibos")
+                    Box(modifier = Modifier.background(Color(0xFFE65100), CircleShape).padding(12.dp)) {
+                        Icon(Icons.Rounded.ReceiptLong, contentDescription = "Ver", tint = Color.White)
                     }
                 }
             }
@@ -326,28 +424,36 @@ fun VistaAnaliticasProfesional(fecha: String, ventasLocal: Double, ventasPedidos
 
     if (verTicketsDialog) {
         Dialog(onDismissRequest = { verTicketsDialog = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-            Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFFF5F5F5)) {
-                Column {
+            Scaffold(
+                containerColor = Color(0xFFF8F9FA),
+                topBar = {
                     TopAppBar(
-                        title = { Text("Recibos - $fecha", fontSize = 18.sp, fontWeight = FontWeight.Bold) },
-                        navigationIcon = { IconButton(onClick = { verTicketsDialog = false }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Cerrar") } }
+                        title = { Text("Recibos Emitidos", fontSize = 18.sp, fontWeight = FontWeight.Black) },
+                        navigationIcon = { IconButton(onClick = { verTicketsDialog = false }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Cerrar") } },
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFFF8F9FA))
                     )
-                    if (ordenesPagadas.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("No hay recibos hoy.", color = Color.Gray) }
-                    } else {
-                        LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            items(ordenesPagadas) { orden ->
-                                Card(elevation = CardDefaults.cardElevation(2.dp), colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
-                                    Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                        Column {
-                                            Text("Ticket #${orden.id}", fontWeight = FontWeight.Bold)
-                                            Text("Mesa ${orden.mesa?.numero}", fontSize = 12.sp, color = Color.Gray)
-                                        }
-                                        Text("C$ ${orden.total}", fontWeight = FontWeight.Black, color = Color(0xFF1B6D24))
-                                        Row {
-                                            IconButton(onClick = { ordenDetalle = orden }) { Icon(Icons.Default.Add, contentDescription = "Ver") }
-                                            IconButton(onClick = { generarReciboPDF(context, orden, menuReal, "Auditoría Admin") }) { Icon(Icons.Default.Edit, contentDescription = "PDF") }
-                                        }
+                }
+            ) { pd ->
+                if (ordenesPagadas.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize().padding(pd), contentAlignment = Alignment.Center) { Text("No hay recibos hoy.", color = Color.Gray) }
+                } else {
+                    LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(pd)) {
+                        items(ordenesPagadas) { orden ->
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                    Column {
+                                        // 🛡️ REVERTIDO AL ID ORIGINAL PARA EVITAR UNRESOLVED REFERENCE
+                                        Text("Ticket #${orden.id}", fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                                        Text("Mesa ${orden.mesa?.numero ?: "N/A"}", fontSize = 13.sp, color = Color.Gray)
+                                    }
+                                    Text("C$ ${orden.total}", fontWeight = FontWeight.Black, color = Color(0xFF217128), fontSize = 16.sp)
+                                    Row {
+                                        IconButton(onClick = { ordenDetalle = orden }) { Icon(Icons.Default.Add, contentDescription = "Ver", tint = textPrimary) }
                                     }
                                 }
                             }
@@ -371,44 +477,63 @@ fun VistaAnaliticasProfesional(fecha: String, ventasLocal: Double, ventasPedidos
 
 @Composable
 fun VistaGestorInventario(menu: List<Producto>, viewModel: MenuViewModel) {
-    val menuOrdenado = menu.sortedBy { it.id }
+    val menuOrdenado = remember(menu) { menu.sortedBy { it.id } }
 
     var mostrarFormulario by remember { mutableStateOf(false) }
     var productoAEditar by remember { mutableStateOf<Producto?>(null) }
 
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         item {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("Catálogo de Productos", fontSize = 20.sp, fontWeight = FontWeight.Black)
-                Button(onClick = { mostrarFormulario = true; productoAEditar = null }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1E1E))) {
-                    Text("+ Nuevo")
+            Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("Menú y Precios", fontSize = 22.sp, fontWeight = FontWeight.Black, color = Color(0xFF1A1C1E))
+                Button(
+                    onClick = { mostrarFormulario = true; productoAEditar = null },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF217128)),
+                    shape = RoundedCornerShape(50)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Nuevo", fontWeight = FontWeight.Bold)
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
         }
 
         items(menuOrdenado, key = { it.id }) { prod ->
             Card(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                colors = CardDefaults.cardColors(containerColor = if (prod.disponible) Color.White else Color(0xFFEEEEEE)),
-                elevation = CardDefaults.cardElevation(1.dp)
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = if (prod.disponible) Color.White else Color(0xFFF8F9FA)),
+                border = BorderStroke(1.dp, if (prod.disponible) Color(0xFFE5E7EB) else Color(0xFFEEEEEE)),
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(prod.nombre, fontWeight = FontWeight.Bold, color = if (prod.disponible) Color.Black else Color.Gray)
-                        Text("C$ ${prod.precio}", fontSize = 14.sp, color = Color(0xFF1B6D24), fontWeight = FontWeight.Bold)
+                        Text(prod.nombre, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, color = if (prod.disponible) Color(0xFF1A1C1E) else Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("C$ ${prod.precio}", fontSize = 14.sp, color = if(prod.disponible) Color(0xFF217128) else Color.Gray, fontWeight = FontWeight.Bold)
                     }
-                    IconButton(onClick = { productoAEditar = prod; mostrarFormulario = true }) {
-                        Icon(Icons.Default.Edit, contentDescription = "Editar", tint = Color.Gray)
+                    IconButton(onClick = { productoAEditar = prod; mostrarFormulario = true }, modifier = Modifier.size(36.dp)) {
+                        Icon(Icons.Default.Edit, contentDescription = "Editar", tint = Color(0xFF6C757D), modifier = Modifier.size(20.dp))
                     }
+                    Spacer(modifier = Modifier.width(8.dp))
                     Switch(
                         checked = prod.disponible,
                         onCheckedChange = { nuevoEstado -> viewModel.modificarProductoEnBD(prod.copy(disponible = nuevoEstado)) },
-                        colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF1B6D24), checkedTrackColor = Color(0xFFA5D6A7))
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = Color(0xFF217128),
+                            uncheckedThumbColor = Color.White,
+                            uncheckedTrackColor = Color(0xFFD1D5DB),
+                            uncheckedBorderColor = Color.Transparent
+                        )
                     )
                 }
             }
         }
+        item { Spacer(modifier = Modifier.height(40.dp)) }
     }
 
     if (mostrarFormulario) {
@@ -435,35 +560,55 @@ fun DialogoFormularioProducto(productoActual: Producto?, onDismiss: () -> Unit, 
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (productoActual == null) "Crear Nuevo Producto" else "Editar Producto", fontWeight = FontWeight.Bold) },
+        containerColor = Color.White,
+        shape = RoundedCornerShape(24.dp),
+        title = { Text(if (productoActual == null) "Nuevo Producto" else "Editar Producto", fontWeight = FontWeight.Black, fontSize = 20.sp) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = nombre, onValueChange = { nombre = it }, label = { Text("Nombre") }, singleLine = true)
-                OutlinedTextField(value = precio, onValueChange = { precio = it }, label = { Text("Precio (C$)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true)
-                OutlinedTextField(value = descripcion, onValueChange = { descripcion = it }, label = { Text("Descripción") }, maxLines = 3)
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = nombre, onValueChange = { nombre = it },
+                    label = { Text("Nombre del Producto") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                OutlinedTextField(
+                    value = precio, onValueChange = { precio = it },
+                    label = { Text("Precio (C$)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                OutlinedTextField(
+                    value = descripcion, onValueChange = { descripcion = it },
+                    label = { Text("Descripción") }, maxLines = 3, modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
             }
         },
         confirmButton = {
-            Button(onClick = {
-                val p = precio.toDoubleOrNull() ?: 0.0
-                if (nombre.isNotBlank()) {
-                    val nuevo = Producto(
-                        id = productoActual?.id ?: "",
-                        nombre = nombre,
-                        precio = p,
-                        descripcion = descripcion,
-                        disponible = productoActual?.disponible ?: true
-                    )
-                    onGuardar(nuevo)
-                }
-            }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B6D24))) { Text("Guardar") }
+            Button(
+                onClick = {
+                    val p = precio.toDoubleOrNull() ?: 0.0
+                    if (nombre.isNotBlank()) {
+                        val nuevo = Producto(
+                            id = productoActual?.id ?: "",
+                            nombre = nombre,
+                            precio = p,
+                            descripcion = descripcion,
+                            disponible = productoActual?.disponible ?: true
+                        )
+                        onGuardar(nuevo)
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A1C1E)),
+                shape = RoundedCornerShape(50)
+            ) { Text("Guardar", modifier = Modifier.padding(horizontal = 12.dp), fontWeight = FontWeight.Bold) }
         },
         dismissButton = {
-            Row {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 if (productoActual != null) {
-                    IconButton(onClick = { onEliminar(productoActual.id) }) { Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color.Red) }
+                    IconButton(onClick = { onEliminar(productoActual.id) }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color(0xFFD32F2F))
+                    }
                 }
-                TextButton(onClick = onDismiss) { Text("Cancelar") }
+                TextButton(onClick = onDismiss) { Text("Cancelar", color = Color.Gray, fontWeight = FontWeight.Bold) }
             }
         }
     )

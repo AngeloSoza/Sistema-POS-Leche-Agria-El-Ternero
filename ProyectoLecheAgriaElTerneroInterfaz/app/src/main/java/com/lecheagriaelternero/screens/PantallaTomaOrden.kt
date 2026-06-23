@@ -1,21 +1,29 @@
 package com.lecheagriaelternero.screens
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -33,51 +41,54 @@ fun PantallaTomaOrden(navController: NavController, viewModel: MenuViewModel) {
     val menuReal by viewModel.menu.collectAsStateWithLifecycle()
     val carritoActual by viewModel.carritoActual.collectAsStateWithLifecycle()
 
-    val categorias = listOf("Todos") + menuReal.map { it.categoria }.distinct()
+    val categorias = remember(menuReal) { listOf("Todos") + menuReal.map { it.categoria }.distinct() }
     var categoriaSeleccionada by remember { mutableStateOf("Todos") }
     var productoACustomizar by remember { mutableStateOf<Producto?>(null) }
 
-    val productosMostrados = menuReal.filter { producto ->
-        val coincideCategoria = categoriaSeleccionada == "Todos" || producto.categoria == categoriaSeleccionada
-        coincideCategoria && producto.disponible
+    val productosMostrados = remember(menuReal, categoriaSeleccionada) {
+        menuReal.filter { producto ->
+            val coincideCategoria = categoriaSeleccionada == "Todos" || producto.categoria == categoriaSeleccionada
+            coincideCategoria && producto.disponible
+        }
     }
 
+    val bgApp = remember { Color(0xFFF9FAFB) }
+    val textPrimary = remember { Color(0xFF111827) }
+
     Scaffold(
+        containerColor = bgApp,
         topBar = {
             TopAppBar(
-                title = { Text("Tomar Orden", fontSize = 18.sp, fontWeight = FontWeight.Bold) },
+                title = { Text("Tomar Orden", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = textPrimary) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Regresar", tint = textPrimary)
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = bgApp),
                 actions = {
                     val ordenActivaMesa by viewModel.ordenActivaMesa.collectAsStateWithLifecycle()
 
                     BadgedBox(
                         badge = {
                             if (carritoActual.isNotEmpty()) {
-                                Badge { Text(carritoActual.size.toString()) }
+                                Badge(containerColor = Color(0xFFDC2626)) { Text(carritoActual.size.toString()) }
                             }
                         },
                         modifier = Modifier.padding(end = 16.dp)
                     ) {
                         IconButton(onClick = { navController.navigate("carrito") }) {
                             if (ordenActivaMesa != null) {
-                                Surface(
-                                    color = Color(0xFFFFEB3B),
-                                    shape = androidx.compose.foundation.shape.CircleShape,
-                                    modifier = Modifier.size(40.dp)
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .background(Color(0xFFFBBF24), CircleShape),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(
-                                        Icons.Default.ShoppingCart,
-                                        contentDescription = "Ver Carrito",
-                                        tint = Color.Black,
-                                        modifier = Modifier.padding(8.dp)
-                                    )
+                                    Icon(Icons.Default.ShoppingCart, contentDescription = "Carrito", tint = textPrimary, modifier = Modifier.size(18.dp))
                                 }
                             } else {
-                                Icon(Icons.Default.ShoppingCart, contentDescription = "Ver Carrito")
+                                Icon(Icons.Default.ShoppingCart, contentDescription = "Carrito", tint = textPrimary)
                             }
                         }
                     }
@@ -89,30 +100,34 @@ fun PantallaTomaOrden(navController: NavController, viewModel: MenuViewModel) {
             SecondaryScrollableTabRow(
                 selectedTabIndex = categorias.indexOf(categoriaSeleccionada),
                 edgePadding = 16.dp,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                containerColor = bgApp,
+                divider = {}
             ) {
                 categorias.forEachIndexed { index, categoria ->
+                    val isSelected = categoriaSeleccionada == categoria
                     Tab(
-                        selected = categorias.indexOf(categoriaSeleccionada) == index,
+                        selected = isSelected,
                         onClick = { categoriaSeleccionada = categoria },
-                        text = { Text(categoria) }
+                        text = { Text(categoria, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal, fontSize = 14.sp) }
                     )
                 }
             }
 
             if (productosMostrados.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No hay productos disponibles.")
+                    Text("No hay productos disponibles.", color = Color.Gray)
                 }
             } else {
                 LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 160.dp),
-                    contentPadding = PaddingValues(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    columns = GridCells.Adaptive(minSize = 150.dp),
+                    contentPadding = PaddingValues(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    items(productosMostrados) { producto ->
+                    // Agregamos un KEY único por producto para optimizar drásticamente el reciclaje de celdas
+                    items(productosMostrados, key = { it.nombre }) { producto ->
                         ProductoItemCard(
                             producto = producto,
                             onAgregar = { productoACustomizar = producto }
@@ -148,37 +163,25 @@ fun DialogoPersonalizar(
 ) {
     var notasAdicionales by remember { mutableStateOf("") }
     var cantidad by remember { mutableIntStateOf(1) }
-
     var terminoHuevo by remember { mutableStateOf("") }
-    val nombreLow = producto.nombre.lowercase()
-    val descLowProd = producto.descripcion.lowercase()
+
+    val textPrimary = remember { Color(0xFF111827) }
+    val nombreLow = remember(producto.nombre) { producto.nombre.lowercase() }
+    val descLowProd = remember(producto.descripcion) { producto.descripcion.lowercase() }
 
     val esHuevoEntero = nombreLow.contains("huevo") &&
             (nombreLow.contains("entero") || nombreLow.contains("ranchero") ||
                     descLowProd.contains("entero") || descLowProd.contains("ranchero"))
 
-    val ingredientesDisponibles = menuReal.filter { it.categoria != "Combos" }
+    val ingredientesDisponibles = remember(menuReal) { menuReal.filter { it.categoria != "Combos" } }
 
     val ingredientesCombo = remember(producto.descripcion, menuReal) {
         val descLow = producto.descripcion.lowercase()
-            .replace("un ", "1 ")
-            .replace("uno ", "1 ")
-            .replace("dos ", "2 ")
-            .replace("tres ", "3 ")
-            .replace(".", "")
-            .replace(",", "")
-            .replace("(", "")
-            .replace(")", "")
-            .replace("  ", " ")
+            .replace("un ", "1 ").replace("uno ", "1 ").replace("dos ", "2 ").replace("tres ", "3 ")
+            .replace(".", "").replace(",", "").replace("(", "").replace(")", "").replace("  ", " ")
 
         val matches = ingredientesDisponibles.filter { item ->
-            val itemNameLow = item.nombre.lowercase()
-                .replace(".", "")
-                .replace(",", "")
-                .replace("(", "")
-                .replace(")", "")
-                .replace("  ", " ")
-
+            val itemNameLow = item.nombre.lowercase().replace(".", "").replace(",", "").replace("(", "").replace(")", "").replace("  ", " ")
             descLow.contains(itemNameLow) ||
                     (itemNameLow == "1 huevo entero" && descLow.contains("un huevo entero")) ||
                     (itemNameLow == "2 huevos enteros" && descLow.contains("dos huevos enteros")) ||
@@ -187,25 +190,14 @@ fun DialogoPersonalizar(
 
         val finalIngredientes = mutableListOf<Producto>()
         for (match in matches) {
-            val matchNameLow = match.nombre.lowercase()
-                .replace(".", "").replace(",", "").replace("(", "").replace(")", "")
-
-            val alreadyCovered = finalIngredientes.any {
-                it.nombre.lowercase()
-                    .replace(".", "").replace(",", "").replace("(", "").replace(")", "")
-                    .contains(matchNameLow)
-            }
-            if (!alreadyCovered) {
-                finalIngredientes.add(match)
-            }
+            val matchNameLow = match.nombre.lowercase().replace(".", "").replace(",", "").replace("(", "").replace(")", "")
+            val alreadyCovered = finalIngredientes.any { it.nombre.lowercase().replace(".", "").replace(",", "").replace("(", "").replace(")", "").contains(matchNameLow) }
+            if (!alreadyCovered) finalIngredientes.add(match)
         }
         finalIngredientes.sortedBy { it.nombre }
     }
 
-    val ingredientesSeleccionados = remember {
-        mutableStateListOf<Producto>().apply { addAll(ingredientesCombo) }
-    }
-
+    val ingredientesSeleccionados = remember { mutableStateListOf<Producto>().apply { addAll(ingredientesCombo) } }
     val extrasSeleccionados = remember { mutableStateListOf<Producto>() }
     var expandedExtra by remember { mutableStateOf(false) }
 
@@ -215,70 +207,77 @@ fun DialogoPersonalizar(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Configurar: ${producto.nombre}", fontWeight = FontWeight.Bold) },
+        containerColor = Color.White,
+        shape = RoundedCornerShape(16.dp),
+        title = { Text(producto.nombre, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = textPrimary) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
-                Text("Precio Base: C$ ${producto.precio}", fontWeight = FontWeight.Medium)
+
+                Box(modifier = Modifier.background(Color(0xFFF3F4F6), RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                    Text("Precio Base: C$ ${producto.precio}", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = textPrimary)
+                }
 
                 if (ingredientesCombo.isNotEmpty()) {
-                    Text("Ingredientes Incluidos (Desmarca para quitar):", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text("Ingredientes incluidos:", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                     Column {
                         ingredientesCombo.forEach { ingrediente ->
+                            val checked = ingredientesSeleccionados.contains(ingrediente)
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth().clickable {
-                                    if (ingredientesSeleccionados.contains(ingrediente)) {
-                                        ingredientesSeleccionados.remove(ingrediente)
-                                    } else {
-                                        ingredientesSeleccionados.add(ingrediente)
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        if (checked) ingredientesSeleccionados.remove(ingrediente)
+                                        else ingredientesSeleccionados.add(ingrediente)
                                     }
-                                }
+                                    .padding(vertical = 4.dp)
                             ) {
-                                Checkbox(
-                                    checked = ingredientesSeleccionados.contains(ingrediente),
-                                    onCheckedChange = null
+                                Icon(
+                                    imageVector = if (checked) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+                                    contentDescription = null,
+                                    tint = if (checked) Color(0xFF16A34A) else Color.LightGray,
+                                    modifier = Modifier.size(20.dp)
                                 )
-                                Text("${ingrediente.nombre} (-C$ ${ingrediente.precio})", fontSize = 14.sp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("${ingrediente.nombre} (-C$ ${ingrediente.precio})", fontSize = 14.sp, color = textPrimary)
                             }
                         }
                     }
+                    HorizontalDivider(color = Color(0xFFF3F4F6))
                 }
-
-                HorizontalDivider()
 
                 if (esHuevoEntero) {
-                    Text("Término de la Yema:", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    val opciones = listOf("Suaves", "Medios", "Duros")
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        opciones.forEach { opcion ->
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { terminoHuevo = opcion }) {
-                                RadioButton(selected = terminoHuevo == opcion, onClick = { terminoHuevo = opcion })
-                                Text(opcion, fontSize = 12.sp)
+                    Text("Término de la Yema:", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("Suaves", "Medios", "Duros").forEach { opcion ->
+                            val isSelected = terminoHuevo == opcion
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .background(if (isSelected) Color(0xFFDCFCE7) else Color.White, RoundedCornerShape(8.dp))
+                                    .clickable { terminoHuevo = opcion }
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(opcion, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (isSelected) Color(0xFF16A34A) else textPrimary)
                             }
                         }
                     }
-                    HorizontalDivider()
+                    HorizontalDivider(color = Color(0xFFF3F4F6))
                 }
 
-                Text("Añadir Extras (Puedes añadir varios):", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-
+                Text("Extras Añadidos:", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                 if (extrasSeleccionados.isNotEmpty()) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         extrasSeleccionados.forEach { extra ->
-                            Surface(
-                                color = Color(0xFFF1F8E9),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.fillMaxWidth()
+                            Row(
+                                modifier = Modifier.fillMaxWidth().background(Color(0xFFF3F4F6), RoundedCornerShape(6.dp)).padding(start = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text("${extra.nombre} (+C$ ${extra.precio})", fontSize = 12.sp)
-                                    IconButton(onClick = { extrasSeleccionados.remove(extra) }, modifier = Modifier.size(24.dp)) {
-                                        Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red, modifier = Modifier.size(16.dp))
-                                    }
+                                Text("${extra.nombre} (+C$ ${extra.precio})", fontSize = 13.sp)
+                                IconButton(onClick = { extrasSeleccionados.remove(extra) }, modifier = Modifier.size(32.dp)) {
+                                    Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFEF4444), modifier = Modifier.size(16.dp))
                                 }
                             }
                         }
@@ -287,16 +286,16 @@ fun DialogoPersonalizar(
 
                 ExposedDropdownMenuBox(expanded = expandedExtra, onExpandedChange = { expandedExtra = !expandedExtra }) {
                     OutlinedTextField(
-                        value = "Toca para añadir un extra...",
-                        onValueChange = {}, readOnly = true,
-                        label = { Text("Añadir otro extra (+ precio)") },
+                        value = "", onValueChange = {}, readOnly = true,
+                        placeholder = { Text("Añadir extra...", fontSize = 14.sp) },
                         modifier = Modifier.fillMaxWidth().menuAnchor(),
+                        shape = RoundedCornerShape(8.dp),
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedExtra) }
                     )
-                    ExposedDropdownMenu(expanded = expandedExtra, onDismissRequest = { expandedExtra = false }) {
+                    ExposedDropdownMenu(expanded = expandedExtra, onDismissRequest = { expandedExtra = false }, containerColor = Color.White) {
                         ingredientesDisponibles.forEach { p ->
                             DropdownMenuItem(
-                                text = { Text("${p.nombre} (+C$ ${p.precio})") },
+                                text = { Text("${p.nombre} (+C$ ${p.precio})", fontSize = 14.sp) },
                                 onClick = {
                                     extrasSeleccionados.add(p)
                                     expandedExtra = false
@@ -306,52 +305,31 @@ fun DialogoPersonalizar(
                     }
                 }
 
-                HorizontalDivider()
+                HorizontalDivider(color = Color(0xFFF3F4F6))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Cantidad:", fontWeight = FontWeight.Bold)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        FilledIconButton(
-                            onClick = { if (cantidad > 1) cantidad-- },
-                            colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color.LightGray)
-                        ) { Text("-", fontWeight = FontWeight.Bold, fontSize = 20.sp) }
-
-                        Text(
-                            cantidad.toString(),
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Black
-                        )
-
-                        FilledIconButton(
-                            onClick = { cantidad++ },
-                            colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color(0xFF1B6D24))
-                        ) { Text("+", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 20.sp) }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Cantidad:", fontWeight = FontWeight.Bold, color = textPrimary)
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.background(Color(0xFFF3F4F6), RoundedCornerShape(50))) {
+                        IconButton(onClick = { if (cantidad > 1) cantidad-- }, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.Remove, null) }
+                        Text(cantidad.toString(), modifier = Modifier.padding(horizontal = 8.dp), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        IconButton(onClick = { cantidad++ }, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.Add, null) }
                     }
                 }
 
                 OutlinedTextField(
                     value = notasAdicionales, onValueChange = { notasAdicionales = it },
-                    label = { Text("Especificaciones adicionales") }, modifier = Modifier.fillMaxWidth()
+                    placeholder = { Text("Instrucciones de cocina...") }, modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp)
                 )
 
-                Surface(
-                    color = Color(0xFFE8F5E9),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.fillMaxWidth()
+                // Totalizador Sólido Ligero
+                Box(
+                    modifier = Modifier.fillMaxWidth().background(Color(0xFF1E2022), RoundedCornerShape(10.dp)).padding(12.dp)
                 ) {
-                    Text(
-                        text = "Total Recalculado: C$ $precioFinal",
-                        fontWeight = FontWeight.Black,
-                        color = Color(0xFF1B6D24),
-                        fontSize = 18.sp,
-                        modifier = Modifier.padding(12.dp),
-                        textAlign = TextAlign.Center
-                    )
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Total Recalculado:", color = Color.White, fontSize = 14.sp)
+                        Text("C$ $precioFinal", fontWeight = FontWeight.Black, color = Color(0xFF4ADE80), fontSize = 16.sp)
+                    }
                 }
             }
         },
@@ -360,31 +338,21 @@ fun DialogoPersonalizar(
                 onClick = {
                     val notaFinal = buildString {
                         val omitidos = ingredientesCombo.filter { it !in ingredientesSeleccionados }
-                        if (omitidos.isNotEmpty()) {
-                            append("SIN: ${omitidos.joinToString(", ") { it.nombre.uppercase() }}. ")
-                        }
-                        if (terminoHuevo.isNotBlank()) {
-                            append("TÉRMINO: $terminoHuevo. ")
-                        }
+                        if (omitidos.isNotEmpty()) append("SIN: ${omitidos.joinToString(", ") { it.nombre.uppercase() }}. ")
+                        if (terminoHuevo.isNotBlank()) append("TÉRMINO: $terminoHuevo. ")
                         if (extrasSeleccionados.isNotEmpty()) {
                             append("\nEXTRAS:\n")
                             extrasSeleccionados.forEach { append("   + ${it.nombre}\n") }
                         }
-                        if (notasAdicionales.isNotBlank()) {
-                            append("NOTAS: $notasAdicionales")
-                        }
+                        if (notasAdicionales.isNotBlank()) append("NOTAS: $notasAdicionales")
                     }
-                    val productoModificado = producto.copy(
-                        nombre = producto.nombre,
-                        descripcion = notaFinal.trim().ifEmpty { producto.descripcion },
-                        precio = precioFinal
-                    )
-                    onConfirm(productoModificado, cantidad)
+                    onConfirm(producto.copy(descripcion = notaFinal.trim().ifEmpty { producto.descripcion }, precio = precioFinal), cantidad)
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1E1E))
-            ) { Text("Agregar") }
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                shape = RoundedCornerShape(8.dp)
+            ) { Text("Confirmar") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar", color = Color.Gray) } }
     )
 }
 
@@ -392,17 +360,21 @@ fun DialogoPersonalizar(
 fun ProductoItemCard(producto: Producto, onAgregar: () -> Unit) {
     Card(
         shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
         modifier = Modifier.fillMaxWidth().clickable { onAgregar() }
     ) {
-        Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(producto.nombre, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(producto.descripcion, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text("C$ ${producto.precio}", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(12.dp))
-            Button(onClick = onAgregar, modifier = Modifier.fillMaxWidth()) { Text("Configurar") }
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(producto.nombre, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF111827), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(producto.descripcion, fontSize = 12.sp, color = Color(0xFF6B7280), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("C$ ${producto.precio}", fontSize = 16.sp, color = Color(0xFF16A34A), fontWeight = FontWeight.Bold)
+                Box(modifier = Modifier.size(28.dp).background(Color(0xFF1E2022), CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Add, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                }
+            }
         }
     }
 }
