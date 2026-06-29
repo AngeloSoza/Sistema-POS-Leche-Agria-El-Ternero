@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -12,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -24,6 +26,7 @@ import androidx.navigation.NavController
 import com.lecheagriaelternero.R
 import com.lecheagriaelternero.viewmodel.MenuViewModel
 
+// UI del Splash Screen Mejorada y Diseñada por Ervin Pérez
 @Composable
 fun PantallaSplash(navController: NavController, viewModel: MenuViewModel) {
     // 🛡️ ESCUDO ACTIVADO: Escuchamos a la base de datos en tiempo real
@@ -38,68 +41,105 @@ fun PantallaSplash(navController: NavController, viewModel: MenuViewModel) {
         }
     }
 
+    // MEJORA UI: Fondo con gradiente sutil para darle más profundidad que un color sólido
+    val fondoGradiente = Brush.verticalGradient(
+        colors = listOf(
+            Color(0xFF1E1E1E), // Gris oscuro arriba
+            Color(0xFF050505)  // Casi negro puro abajo
+        )
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF121212)),
+            .background(fondoGradiente),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth(0.85f)
+            modifier = Modifier.fillMaxWidth(0.9f) // MEJORA UI: Un poco más ancho para que el texto respire mejor
         ) {
+
+            // MEJORA UI: Título dividido para darle énfasis al nombre del negocio
             Text(
-                text = "Bienvenido al Sistema de Ventas\ny Pedidos de Leche Agria\n\"El Ternero\"",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Color.White,
+                text = "Sistema de Ventas y Pedidos",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFFB0BEC5), // Gris azulado claro
                 textAlign = TextAlign.Center,
-                lineHeight = 32.sp
+                letterSpacing = 1.sp
             )
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
-            Box(
-                modifier = Modifier
-                    .size(260.dp)
-                    .clip(CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.logo_ternero),
-                    contentDescription = "Logo El Ternero",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Fit
-                )
-            }
+            Text(
+                text = "LECHE AGRIA\n\"EL TERNERO\"",
+                fontSize = 34.sp,
+                fontWeight = FontWeight.Black,
+                color = Color.White,
+                textAlign = TextAlign.Center,
+                lineHeight = 38.sp,
+                letterSpacing = 2.sp
+            )
 
             Spacer(modifier = Modifier.height(48.dp))
 
+            // MEJORA UI: Surface detrás del logo para darle un brillo/sombra sutil (Efecto premium)
+            Surface(
+                modifier = Modifier.size(270.dp),
+                shape = CircleShape,
+                color = Color.Transparent,
+                shadowElevation = 12.dp // Sombra suave para despegar el logo del fondo
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.03f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.logo_ternero),
+                        contentDescription = "Logo El Ternero",
+                        modifier = Modifier
+                            .size(260.dp)
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(56.dp))
+
+            // MEJORA UI: Indicador de progreso con color de riel (track) para que se vea más moderno
             CircularProgressIndicator(
-                color = Color(0xFFE65100),
-                strokeWidth = 4.dp,
-                modifier = Modifier.size(48.dp)
+                color = Color(0xFFFF9800), // Naranja vibrante
+                trackColor = Color(0xFF333333), // Riel gris oscuro de fondo
+                strokeWidth = 5.dp,
+                modifier = Modifier.size(56.dp)
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
             Text(
                 text = "Sabor que enamora...",
-                fontSize = 16.sp,
+                fontSize = 18.sp,
                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                color = Color(0xFFFFCC80),
-                textAlign = TextAlign.Center
+                color = Color(0xFFFFB74D), // Naranja un poco más suave para hacer contraste
+                textAlign = TextAlign.Center,
+                fontWeight = FontWeight.SemiBold
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Texto dinámico que justifica la espera
             Text(
                 text = "Sincronizando con Base de Datos segura...",
-                fontSize = 12.sp,
-                color = Color.Gray,
-                textAlign = TextAlign.Center
+                fontSize = 13.sp,
+                color = Color(0xFF888888), // Gris intermedio, no llama tanto la atención
+                textAlign = TextAlign.Center,
+                letterSpacing = 0.5.sp
             )
         }
     }
