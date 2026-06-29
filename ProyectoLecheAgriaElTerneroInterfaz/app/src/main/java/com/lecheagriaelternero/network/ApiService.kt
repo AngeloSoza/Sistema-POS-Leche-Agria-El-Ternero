@@ -43,7 +43,7 @@ interface ApiService {
 object RetrofitClient {
     // ⚠️ IMPORTANTE: Como usas tu Samsung S25 Ultra físico, 10.0.2.2 NO funcionará.
     // Cambia esta IP por la IP IPv4 de la computadora donde corre tu Spring Boot (ej: "http://192.168.1.15:8080")
-    private const val BASE_URL = "http://10.59.152.72:8080"
+    private const val BASE_URL = "http://10.0.2.2:8080"
 
     val apiService: ApiService by lazy {
         Retrofit.Builder()
