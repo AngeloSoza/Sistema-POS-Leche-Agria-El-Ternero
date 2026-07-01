@@ -34,14 +34,19 @@ public class OrdenController {
             orden.setMetodoPago(body.get("metodoPago"));
         }
 
+        // 🛡️ SOLUCIÓN: Guardamos la orden primero para asegurar persistencia
+        orden = ordenRepository.save(orden);
+
         if ("PAGADO".equals(nuevoEstado)) {
             Mesa mesa = orden.getMesa();
-            mesa.setEstado("LIBRE");
-            mesa.setTotal(0.0);
-            mesaRepository.save(mesa);
+            if (mesa != null) {
+                mesa.setEstado("DISPONIBLE"); // Cambiado de LIBRE a DISPONIBLE para coincidir con el SQL
+                mesa.setTotal(0.0);
+                mesaRepository.save(mesa);
+            }
         }
 
-        return ordenRepository.save(orden);
+        return orden;
     }
 
     @PostMapping("/enviar-pedido/{mesaId}")
