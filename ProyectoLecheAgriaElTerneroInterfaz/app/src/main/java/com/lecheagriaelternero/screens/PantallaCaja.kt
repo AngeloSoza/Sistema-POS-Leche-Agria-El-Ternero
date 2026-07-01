@@ -123,12 +123,13 @@ fun PantallaCaja(navController: NavController, viewModel: MenuViewModel) {
                                 onCobrar = {
                                     if (!isProcessing) {
                                         isProcessing = true
-                                        viewModel.cobrarMesa(orden.id, metodoActual)
-                                        Toast.makeText(context, "Procesando cobro: ${metodoActual}", Toast.LENGTH_SHORT).show()
 
+                                        viewModel.cobrarMesa(orden.id, metodoActual)
+                                        
                                         coroutineScope.launch {
-                                            delay(1500)
+                                            delay(2000)
                                             isProcessing = false
+                                            Toast.makeText(context, "Mesa Liberada Correctamente", Toast.LENGTH_SHORT).show()
                                         }
                                     }
                                 },

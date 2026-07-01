@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.lecheagriaelternero.model.*
 import com.lecheagriaelternero.network.RetrofitClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -205,15 +206,16 @@ class MenuViewModel : ViewModel() {
                 RetrofitClient.apiService.enviarPedido(mesaId, payload)
                 vaciarCarrito()
 
+                // 🛡️ REFRESCO GARANTIZADO
+                cargarOrdenes()
+                cargarMesas()
+
                 val ordenesActualizadas = RetrofitClient.apiService.getOrdenes()
                 _ordenesActivas.value = ordenesActualizadas
                 _ordenActivaMesa.value = ordenesActualizadas.find { "${it.mesa?.id}" == mesaId && it.estado != "PAGADO" }
 
-                val mesasActualizadas = RetrofitClient.apiService.getMesas()
-                _mesas.value = mesasActualizadas.sortedBy { "${it.numero}".replace(Regex("[^0-9]"), "").toIntOrNull() ?: 0 }
-
             } catch (e: Exception) {
-                _errorState.value = "Error conectando con la cocina: ${e.message}"
+                _errorState.value = "🔴 ERROR COCINA (TIMEOUT): Verifica que la PC y el celular estén en el mismo Wi-Fi (IP: 192.168.0.18)"
             }
         }
     }
@@ -222,6 +224,7 @@ class MenuViewModel : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 RetrofitClient.apiService.actualizarEstadoOrden("$ordenId", mapOf("estado" to nuevoEstado))
+                delay(500)
                 cargarOrdenes()
                 cargarMesas()
             } catch (e: Exception) {
@@ -253,11 +256,13 @@ class MenuViewModel : ViewModel() {
                     "$ordenId", 
                     mapOf("estado" to "PAGADO", "metodoPago" to metodoPago)
                 )
+                // 🛡️ REFRESCO TOTAL POST-COBRO
+                delay(500)
                 cargarOrdenes()
                 cargarMesas()
                 cargarEstadisticas()
             } catch (e: Exception) {
-                _errorState.value = "Error de conexión al cobrar: ${e.message}"
+                _errorState.value = "🔴 ERROR CAJA: No se pudo registrar el pago. ${e.message}"
             }
         }
     }
