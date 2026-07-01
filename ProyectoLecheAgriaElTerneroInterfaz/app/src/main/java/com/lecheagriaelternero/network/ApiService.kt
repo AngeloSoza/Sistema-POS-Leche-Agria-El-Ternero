@@ -11,13 +11,13 @@ interface ApiService {
     @GET("/api/mesas")
     suspend fun getMesas(): List<Mesa>
 
-    @GET("/api/estadisticas/dia")
+    @GET("/api/estadisticas/hoy")
     suspend fun getEstadisticasDelDia(): EstadisticasDia
 
     @GET("/api/ordenes")
     suspend fun getOrdenes(): List<OrdenBackend>
 
-    @POST("/api/ordenes/{mesaId}")
+    @POST("/api/ordenes/enviar-pedido/{mesaId}")
     suspend fun enviarPedido(@Path("mesaId") mesaId: String, @Body payload: OrdenPayload): OrdenBackend
 
     @PATCH("/api/ordenes/{id}/estado")
@@ -39,11 +39,9 @@ interface ApiService {
     suspend fun eliminarProducto(@Path("id") id: String): Response<Unit>
 }
 
-// 🛡️ SOLUCIÓN: Motor de conexión integrado para evitar el error "Unresolved reference"
+
 object RetrofitClient {
-    // ⚠️ IMPORTANTE: Como usas tu Samsung S25 Ultra físico, 10.0.2.2 NO funcionará.
-    // Cambia esta IP por la IP IPv4 de la computadora donde corre tu Spring Boot (ej: "http://192.168.1.15:8080")
-    private const val BASE_URL = "http://10.0.2.2:8080"
+    private const val BASE_URL = "http://192.168.0.18:8080"
 
     val apiService: ApiService by lazy {
         Retrofit.Builder()

@@ -36,8 +36,8 @@ class MainActivity : ComponentActivity() {
                         composable("carrito") { PantallaCarrito(navController, viewModel) }
                         composable("cocina") { PantallaCocina(navController, viewModel) }
                         composable("caja") { PantallaCaja(navController, viewModel) }
-                        composable("dashboard") { DashboardScreen(navController, viewModel) } // Dashboard original si lo usas
-                        composable("inventario") { PantallaInventario(navController, viewModel) } // Inventario original
+                        composable("dashboard") { DashboardScreen(navController, viewModel) }
+                        composable("inventario") { PantallaInventario(navController, viewModel) }
 
                         // 🛡️ RUTAS DEL NUEVO MÓDULO DE ADMINISTRACIÓN (EXCLUSIVO DUEÑO)
                         composable("auth_admin") { PantallaAuthAdmin(navController) }

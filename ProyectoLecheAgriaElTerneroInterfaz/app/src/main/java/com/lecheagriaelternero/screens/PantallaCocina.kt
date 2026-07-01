@@ -31,7 +31,6 @@ import kotlinx.coroutines.delay
 fun PantallaCocina(navController: NavController, viewModel: MenuViewModel) {
     val ordenesActivas by viewModel.ordenesActivas.collectAsStateWithLifecycle()
 
-    // LOGICA INTACTA: Polling de órdenes
     LaunchedEffect(Unit) {
         while(true) {
             viewModel.cargarOrdenes()
@@ -54,7 +53,7 @@ fun PantallaCocina(navController: NavController, viewModel: MenuViewModel) {
                         Text("Sincronizado en tiempo real", fontSize = 12.sp, color = Color.Gray)
                     }
                 },
-                // 🎨 NUEVO: Fondo gris claro como en AuthAdmin
+
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFFF5F5F5)),
                 actions = {
                     IconButton(onClick = { viewModel.cargarOrdenes() }) {
@@ -63,12 +62,11 @@ fun PantallaCocina(navController: NavController, viewModel: MenuViewModel) {
                 }
             )
         },
-        // 🎨 NUEVO: Fondo general gris clarito para que resalten las tarjetas blancas
+
         containerColor = Color(0xFFF5F5F5)
     ) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
 
-            // 🎨 NUEVO: Tabs blancos con el indicador Verde Institucional
             ScrollableTabRow(
                 selectedTabIndex = if (filtroActual == "PENDIENTE") 0 else if (filtroActual == "ENTREGADO") 1 else 2,
                 containerColor = Color.White,
@@ -125,7 +123,6 @@ fun PantallaCocina(navController: NavController, viewModel: MenuViewModel) {
 fun OrdenCocinaCard(orden: OrdenBackend, viewModel: MenuViewModel) {
     val isEntregada = orden.estado == "ENTREGADO"
 
-    // 🎨 NUEVO: Tarjetas blancas limpias. Si está entregada, un ligerísimo tono verde de fondo.
     val colorFondo = if (isEntregada) Color(0xFFF1F8E9) else Color.White
     val colorVerdeAdmin = Color(0xFF1B6D24)
 
@@ -135,7 +132,7 @@ fun OrdenCocinaCard(orden: OrdenBackend, viewModel: MenuViewModel) {
             .animateContentSize(),
         colors = CardDefaults.cardColors(containerColor = colorFondo),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp) // Elevación sutil
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(
@@ -149,7 +146,7 @@ fun OrdenCocinaCard(orden: OrdenBackend, viewModel: MenuViewModel) {
                 }
 
                 Surface(
-                    color = if (isEntregada) colorVerdeAdmin else Color(0xFFE65100), // Naranja para pendiente, Verde para lista
+                    color = if (isEntregada) colorVerdeAdmin else Color(0xFFE65100),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
@@ -165,7 +162,7 @@ fun OrdenCocinaCard(orden: OrdenBackend, viewModel: MenuViewModel) {
             HorizontalDivider(color = Color.LightGray.copy(alpha = 0.5f), modifier = Modifier.padding(vertical = 16.dp))
 
             Surface(
-                color = Color(0xFFF9F9F9), // Gris ultra claro para agrupar los detalles del pedido
+                color = Color(0xFFF9F9F9),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -174,39 +171,65 @@ fun OrdenCocinaCard(orden: OrdenBackend, viewModel: MenuViewModel) {
                     val lineas = notasTexto.split("\n")
 
                     lineas.forEach { linea ->
-                        if (linea.isNotBlank()) {
-                            Row(
-                                modifier = Modifier.padding(vertical = 6.dp),
-                                verticalAlignment = Alignment.Top
-                            ) {
-                                if (linea.contains("🔴 NUEVO:")) {
-                                    Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFD32F2F), modifier = Modifier.size(22.dp).padding(top = 2.dp))
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Text(linea.replace("🔴 NUEVO:", "").trim(), fontWeight = FontWeight.Black, fontSize = 18.sp, color = Color(0xFFD32F2F))
-                                } else if (linea.contains("✅ YA PEDIDO:") || linea.contains("✅ ENTREGADO:") || linea.contains("✓")) {
-                                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF9E9E9E), modifier = Modifier.size(22.dp).padding(top = 2.dp))
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    val textoLimpio = linea
-                                        .replace("✅ YA PEDIDO:", "")
-                                        .replace("✅ ENTREGADO:", "")
-                                        .replace("✓", "")
-                                        .trim()
-                                    Text(
-                                        text = textoLimpio,
-                                        fontWeight = FontWeight.Medium,
-                                        fontSize = 16.sp,
-                                        color = Color(0xFF9E9E9E),
-                                        textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough
-                                    )
-                                } else if (linea.startsWith("- ")) {
-                                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = colorVerdeAdmin, modifier = Modifier.size(22.dp).padding(top = 2.dp))
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Text(linea.substring(2), fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF1E1E1E))
-                                } else if (linea.startsWith("📝")) {
-                                    Text(linea, fontSize = 15.sp, color = Color(0xFFE65100), fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
-                                } else {
-                                    Spacer(modifier = Modifier.width(32.dp))
-                                    Text(linea, fontSize = 16.sp, color = Color(0xFF424242), fontWeight = FontWeight.Medium)
+                        val trimmed = linea.trim()
+                        if (trimmed.isNotBlank()) {
+                            if (trimmed.contains("--- ADICIÓN SOLICITADA ---") || trimmed.contains("--- ADICIÓN ---")) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                                    HorizontalDivider(modifier = Modifier.weight(1f), color = Color.LightGray)
+                                    Text(" ADICIONES ", fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color.Gray)
+                                    HorizontalDivider(modifier = Modifier.weight(1f), color = Color.LightGray)
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                            } else {
+                                Row(
+                                    modifier = Modifier.padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.Top
+                                ) {
+                                    val isNuevo = trimmed.contains("⭐ [NUEVO]") || trimmed.contains("🔴 NUEVO:")
+                                    val isEntregado = trimmed.contains("✅ [ENTREGADO]") || trimmed.contains("✅ YA PEDIDO:") || trimmed.contains("✅ ENTREGADO:") || trimmed.contains("✓")
+                                    val isHeader = trimmed.startsWith("- ")
+                                    val isNotaGral = trimmed.startsWith("📝")
+
+                                    when {
+                                        isNuevo && !isEntregada -> {
+                                            Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFD32F2F), modifier = Modifier.size(20.dp).padding(top = 2.dp))
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            val texto = trimmed.replace("⭐ [NUEVO]", "").replace("🔴 NUEVO:", "").trim()
+                                            Text(texto, fontWeight = FontWeight.Black, fontSize = 17.sp, color = Color(0xFFD32F2F))
+                                        }
+                                        isEntregado || isEntregada -> {
+                                            val colorVerdeAdmin = Color(0xFF1B6D24)
+                                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = colorVerdeAdmin, modifier = Modifier.size(20.dp).padding(top = 2.dp))
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            val texto = trimmed
+                                                .replace("✅ [ENTREGADO]", "")
+                                                .replace("⭐ [NUEVO]", "")
+                                                .replace("🔴 NUEVO:", "")
+                                                .replace("✅ YA PEDIDO:", "")
+                                                .replace("✅ ENTREGADO:", "")
+                                                .replace("✓", "")
+                                                .trim()
+                                            Text(
+                                                text = texto,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 15.sp,
+                                                color = colorVerdeAdmin
+                                            )
+                                        }
+                                        isHeader -> {
+                                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = if (isEntregada) Color(0xFF1B6D24) else Color(0xFFD32F2F), modifier = Modifier.size(20.dp).padding(top = 2.dp))
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            Text(trimmed.substring(2), fontWeight = FontWeight.Bold, fontSize = 17.sp, color = Color(0xFF1E1E1E))
+                                        }
+                                        isNotaGral -> {
+                                            Text(trimmed, fontSize = 14.sp, color = Color(0xFFE65100), fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
+                                        }
+                                        else -> {
+                                            Spacer(modifier = Modifier.width(30.dp))
+                                            Text(trimmed, fontSize = 15.sp, color = Color(0xFF616161), fontWeight = FontWeight.Medium)
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -220,7 +243,6 @@ fun OrdenCocinaCard(orden: OrdenBackend, viewModel: MenuViewModel) {
                     onClick = { viewModel.cambiarEstadoOrden(orden.id, "ENTREGADO") },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = RoundedCornerShape(12.dp),
-                    // 🎨 NUEVO: Botón usando el Verde Institucional de la app
                     colors = ButtonDefaults.buttonColors(containerColor = colorVerdeAdmin)
                 ) {
                     Text("MARCAR COMO LISTA ✅", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White, letterSpacing = 1.sp)

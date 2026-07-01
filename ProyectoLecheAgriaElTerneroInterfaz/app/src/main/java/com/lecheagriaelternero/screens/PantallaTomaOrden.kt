@@ -126,7 +126,7 @@ fun PantallaTomaOrden(navController: NavController, viewModel: MenuViewModel) {
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    // Agregamos un KEY único por producto para optimizar drásticamente el reciclaje de celdas
+
                     items(productosMostrados, key = { it.nombre }) { producto ->
                         ProductoItemCard(
                             producto = producto,
@@ -322,7 +322,6 @@ fun DialogoPersonalizar(
                     shape = RoundedCornerShape(8.dp)
                 )
 
-                // Totalizador Sólido Ligero
                 Box(
                     modifier = Modifier.fillMaxWidth().background(Color(0xFF1E2022), RoundedCornerShape(10.dp)).padding(12.dp)
                 ) {

@@ -64,7 +64,6 @@ fun PantallaAuthAdmin(navController: NavController) {
                 value = pin,
                 onValueChange = { if (it.length <= 4) pin = it },
                 visualTransformation = PasswordVisualTransformation(),
-                // 🛡️ SOLUCIÓN: Forza el teclado numérico de contraseñas
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                 textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center, fontSize = 32.sp, letterSpacing = 8.sp),
                 singleLine = true,

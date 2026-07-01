@@ -17,7 +17,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material3.*
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset // 🛡️ IMPORTACIÓN PARA EL INDICADOR CORREGIDA
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,14 +53,14 @@ fun PantallaAdminDashboard(navController: NavController, viewModel: MenuViewMode
     val ventasPedidosYa by viewModel.ventasPedidosYa.collectAsStateWithLifecycle()
     val gastosDelDia by viewModel.gastosDelDia.collectAsStateWithLifecycle()
     val menuReal by viewModel.menu.collectAsStateWithLifecycle()
+    val estadisticas by viewModel.estadisticas.collectAsStateWithLifecycle()
 
-    var transferenciasDia by remember { mutableDoubleStateOf(0.0) }
+    val transferenciasDia = estadisticas.ventasTransferencia
 
     val ordenesPagadasHoy = ordenesActivas.filter { it.estado == "PAGADO" }
     val ventasLocal = ordenesPagadasHoy.sumOf { it.total }
     val totalGastos = gastosDelDia.sumOf { it.second }
 
-    // 🧮 FÓRMULA EXACTA DE ARQUEO ORIGINAL:
     val ventasTotalesDia = ventasLocal + ventasPedidosYa
     val sumaBase = ventasTotalesDia + fondoInicial
     val efectivoEsperadoEnCaja = sumaBase - ventasPedidosYa - transferenciasDia - totalGastos
@@ -112,8 +112,7 @@ fun PantallaAdminDashboard(navController: NavController, viewModel: MenuViewMode
 
             when (tabSeleccionado) {
                 0 -> VistaArqueoCaja(
-                    fechaActual, ventasLocal, fondoInicial, ventasPedidosYa, ventasTotalesDia, transferenciasDia, gastosDelDia, efectivoEsperadoEnCaja, viewModel,
-                    onTransferenciasChange = { transferenciasDia = it }
+                    fechaActual, ventasLocal, fondoInicial, ventasPedidosYa, ventasTotalesDia, transferenciasDia, gastosDelDia, efectivoEsperadoEnCaja, viewModel
                 )
                 1 -> VistaAnaliticasProfesional(fechaActual, ventasLocal, ventasPedidosYa, ordenesPagadasHoy, menuReal)
                 2 -> VistaGestorInventario(menuReal, viewModel)
@@ -132,8 +131,7 @@ fun VistaArqueoCaja(
     transferencias: Double,
     gastos: List<Pair<String, Double>>,
     esperado: Double,
-    viewModel: MenuViewModel,
-    onTransferenciasChange: (Double) -> Unit
+    viewModel: MenuViewModel
 ) {
     var mostrarDialogoGasto by remember { mutableStateOf(false) }
 
@@ -221,8 +219,9 @@ fun VistaArqueoCaja(
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("- Transferencias:", color = Color(0xFFD32F2F), fontWeight = FontWeight.Medium)
                         OutlinedTextField(
-                            value = if(transferencias == 0.0) "" else transferencias.toString(),
-                            onValueChange = { onTransferenciasChange(it.toDoubleOrNull() ?: 0.0) },
+                            value = if(transferencias == 0.0) "0.0" else transferencias.toString(),
+                            onValueChange = { },
+                            readOnly = true,
                             modifier = Modifier.width(140.dp).height(52.dp),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             singleLine = true,
@@ -447,7 +446,6 @@ fun VistaAnaliticasProfesional(fecha: String, ventasLocal: Double, ventasPedidos
                             ) {
                                 Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                     Column {
-                                        // 🛡️ REVERTIDO AL ID ORIGINAL PARA EVITAR UNRESOLVED REFERENCE
                                         Text("Ticket #${orden.id}", fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
                                         Text("Mesa ${orden.mesa?.numero ?: "N/A"}", fontSize = 13.sp, color = Color.Gray)
                                     }
@@ -477,7 +475,11 @@ fun VistaAnaliticasProfesional(fecha: String, ventasLocal: Double, ventasPedidos
 
 @Composable
 fun VistaGestorInventario(menu: List<Producto>, viewModel: MenuViewModel) {
-    val menuOrdenado = remember(menu) { menu.sortedBy { it.id } }
+
+    val categorias = listOf("Combos", "Extras", "Bebidas")
+    val menuAgrupado = remember(menu) {
+        menu.groupBy { it.categoria }
+    }
 
     var mostrarFormulario by remember { mutableStateOf(false) }
     var productoAEditar by remember { mutableStateOf<Producto?>(null) }
@@ -502,34 +504,49 @@ fun VistaGestorInventario(menu: List<Producto>, viewModel: MenuViewModel) {
             }
         }
 
-        items(menuOrdenado, key = { it.id }) { prod ->
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = if (prod.disponible) Color.White else Color(0xFFF8F9FA)),
-                border = BorderStroke(1.dp, if (prod.disponible) Color(0xFFE5E7EB) else Color(0xFFEEEEEE)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(prod.nombre, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, color = if (prod.disponible) Color(0xFF1A1C1E) else Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("C$ ${prod.precio}", fontSize = 14.sp, color = if(prod.disponible) Color(0xFF217128) else Color.Gray, fontWeight = FontWeight.Bold)
-                    }
-                    IconButton(onClick = { productoAEditar = prod; mostrarFormulario = true }, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Default.Edit, contentDescription = "Editar", tint = Color(0xFF6C757D), modifier = Modifier.size(20.dp))
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Switch(
-                        checked = prod.disponible,
-                        onCheckedChange = { nuevoEstado -> viewModel.modificarProductoEnBD(prod.copy(disponible = nuevoEstado)) },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = Color(0xFF217128),
-                            uncheckedThumbColor = Color.White,
-                            uncheckedTrackColor = Color(0xFFD1D5DB),
-                            uncheckedBorderColor = Color.Transparent
-                        )
+        categorias.forEach { nombreCat ->
+            val productosDeCat = menuAgrupado[nombreCat] ?: emptyList()
+            if (productosDeCat.isNotEmpty()) {
+                item {
+                    Text(
+                        text = nombreCat.uppercase(),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
+                        letterSpacing = 1.sp
                     )
+                }
+                items(productosDeCat, key = { it.id }) { prod ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = if (prod.disponible) Color.White else Color(0xFFF8F9FA)),
+                        border = BorderStroke(1.dp, if (prod.disponible) Color(0xFFE5E7EB) else Color(0xFFEEEEEE)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(prod.nombre, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, color = if (prod.disponible) Color(0xFF1A1C1E) else Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("C$ ${prod.precio}", fontSize = 14.sp, color = if(prod.disponible) Color(0xFF217128) else Color.Gray, fontWeight = FontWeight.Bold)
+                            }
+                            IconButton(onClick = { productoAEditar = prod; mostrarFormulario = true }, modifier = Modifier.size(36.dp)) {
+                                Icon(Icons.Default.Edit, contentDescription = "Editar", tint = Color(0xFF6C757D), modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Switch(
+                                checked = prod.disponible,
+                                onCheckedChange = { nuevoEstado -> viewModel.modificarProductoEnBD(prod.copy(disponible = nuevoEstado)) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = Color(0xFF217128),
+                                    uncheckedThumbColor = Color.White,
+                                    uncheckedTrackColor = Color(0xFFD1D5DB),
+                                    uncheckedBorderColor = Color.Transparent
+                                )
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -552,11 +569,22 @@ fun VistaGestorInventario(menu: List<Producto>, viewModel: MenuViewModel) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DialogoFormularioProducto(productoActual: Producto?, onDismiss: () -> Unit, onGuardar: (Producto) -> Unit, onEliminar: (String) -> Unit) {
     var nombre by remember { mutableStateOf(productoActual?.nombre ?: "") }
     var precio by remember { mutableStateOf(productoActual?.precio?.toString() ?: "") }
     var descripcion by remember { mutableStateOf(productoActual?.descripcion ?: "") }
+
+    val listaCategorias = listOf(
+        com.lecheagriaelternero.model.CategoriaBackend(1, "Combos"),
+        com.lecheagriaelternero.model.CategoriaBackend(2, "Extras"),
+        com.lecheagriaelternero.model.CategoriaBackend(3, "Bebidas")
+    )
+    var categoriaSeleccionada by remember { 
+        mutableStateOf(productoActual?.categoriaObj ?: listaCategorias[1])
+    }
+    var expanded by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -565,6 +593,37 @@ fun DialogoFormularioProducto(productoActual: Producto?, onDismiss: () -> Unit, 
         title = { Text(if (productoActual == null) "Nuevo Producto" else "Editar Producto", fontWeight = FontWeight.Black, fontSize = 20.sp) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = !expanded }
+                ) {
+                    OutlinedTextField(
+                        value = categoriaSeleccionada.nombre,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Categoría") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        listaCategorias.forEach { cat ->
+                            DropdownMenuItem(
+                                text = { Text(cat.nombre) },
+                                onClick = {
+                                    categoriaSeleccionada = cat
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
                 OutlinedTextField(
                     value = nombre, onValueChange = { nombre = it },
                     label = { Text("Nombre del Producto") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
@@ -592,7 +651,8 @@ fun DialogoFormularioProducto(productoActual: Producto?, onDismiss: () -> Unit, 
                             nombre = nombre,
                             precio = p,
                             descripcion = descripcion,
-                            disponible = productoActual?.disponible ?: true
+                            disponible = productoActual?.disponible ?: true,
+                            categoriaObj = categoriaSeleccionada
                         )
                         onGuardar(nuevo)
                     }

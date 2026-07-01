@@ -87,9 +87,10 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
                                     }
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
-                                // 🛡️ MEJORA ESTÉTICA: Limpiamos los prefijos técnicos para el usuario final
                                 val notasLimpias = (orden.notas ?: "Sin detalles")
                                     .replace("🔴 NUEVO:", "•")
+                                    .replace("⭐ [NUEVO]", "•")
+                                    .replace("✅ [ENTREGADO]", "✓")
                                     .replace("✓", "✓")
                                     .replace("✅ YA PEDIDO:", "✓")
                                     .replace("✅ YA ENTREGADO:", "✓")
@@ -186,7 +187,6 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
             val list = mutableListOf<ItemOrdenParseado>()
             var currentBlock = mutableListOf<String>()
 
-            // Analizador Léxico Inmune a fallos
             for (line in lines) {
                 if (line.matches(Regex(".*?\\d+x\\s+.*"))) {
                     if (currentBlock.isNotEmpty()) {
@@ -229,7 +229,6 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Column(modifier = Modifier.weight(1f)) {
-                                            // 🛡️ SOLUCIÓN: Solo mostramos nombre y precio
                                             Text("${item.cantidad}x ${item.nombre}", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                             Text("C$ ${item.precioCalculado}", color = Color(0xFF1B6D24), fontSize = 12.sp, fontWeight = FontWeight.Medium)
                                         }
@@ -257,7 +256,6 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
                         textStyle = LocalTextStyle.current.copy(fontSize = 12.sp)
                     )
 
-                    // 🛡️ SOLUCIÓN: Texto fijo e inmutable
                     Surface(color = Color(0xFFE8F5E9), shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
                         Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("TOTAL FINAL DE LA MESA:", fontWeight = FontWeight.Bold)
@@ -289,7 +287,6 @@ fun PantallaCarrito(navController: NavController, viewModel: MenuViewModel) {
     }
 }
 
-// Analizador Lexico Inmune a fallos de formato
 fun parsearBloque(lines: List<String>, menuReal: List<Producto>): ItemOrdenParseado? {
     val firstLine = lines.first()
     val regex = Regex(".*?(\\d+)x\\s+(.*)")

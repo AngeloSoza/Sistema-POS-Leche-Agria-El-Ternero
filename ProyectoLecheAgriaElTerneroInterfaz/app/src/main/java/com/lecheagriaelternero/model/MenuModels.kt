@@ -30,6 +30,7 @@ data class CategoriaBackend(
 
 data class EstadisticasDia(
     @SerializedName("totalVentas") val totalVentas: Double = 0.0,
+    @SerializedName("ventasTransferencia") val ventasTransferencia: Double = 0.0,
     @SerializedName("ticketsEmitidos") val ticketsEmitidos: Int = 0,
     @SerializedName("ticketPromedio") val ticketPromedio: Double = 0.0,
     @SerializedName("topProductos") val topProductos: List<ProductoTop> = emptyList()
@@ -47,7 +48,8 @@ data class OrdenBackend(
     @SerializedName("mesa") val mesa: Mesa? = null,
     @SerializedName("notas") val notas: String? = "",
     @SerializedName("estado") val estado: String = "PENDIENTE",
-    @SerializedName("total") val total: Double = 0.0
+    @SerializedName("total") val total: Double = 0.0,
+    @SerializedName("metodoPago") val metodoPago: String? = "Efectivo"
 )
 
 data class OrdenPayload(

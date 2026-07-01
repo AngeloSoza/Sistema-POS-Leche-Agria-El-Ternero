@@ -31,9 +31,8 @@ import androidx.navigation.NavController
 fun DashboardScreen(navController: NavController, viewModel: com.lecheagriaelternero.viewmodel.MenuViewModel) {
     val stats by viewModel.estadisticas.collectAsStateWithLifecycle()
 
-    // Caché de colores para evitar re-asignaciones en memoria durante recomposiciones
     val bgApp = remember { Color(0xFFF9FAFB) }
-    val darkCard = remember { Color(0xFF1E2022) } // Carbón plano sólido (más ligero que un degradado)
+    val darkCard = remember { Color(0xFF1E2022) }
     val textPrimary = remember { Color(0xFF111827) }
     val textSecondary = remember { Color(0xFF6B7280) }
     val oliveText = remember { Color(0xFF374151) }
@@ -81,7 +80,6 @@ fun DashboardScreen(navController: NavController, viewModel: com.lecheagriaelter
         ) {
             Spacer(modifier = Modifier.height(2.dp))
 
-            // Tarjeta Principal de Ventas (Sólida, sin sombras pesadas)
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = darkCard),
@@ -113,9 +111,8 @@ fun DashboardScreen(navController: NavController, viewModel: com.lecheagriaelter
                 }
             }
 
-            // Bloque de Métricas Secundarias
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                // Tickets
+
                 Card(
                     modifier = Modifier.weight(1f),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -129,7 +126,6 @@ fun DashboardScreen(navController: NavController, viewModel: com.lecheagriaelter
                     }
                 }
 
-                // Producto Estrella
                 val productoEstrella = stats.topProductos.firstOrNull()
                 Card(
                     modifier = Modifier.weight(1f),
@@ -153,7 +149,6 @@ fun DashboardScreen(navController: NavController, viewModel: com.lecheagriaelter
                 }
             }
 
-            // Contenedor Lista Top Productos
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -195,7 +190,7 @@ fun ItemTopProducto(posicion: String, nombre: String, ventas: String, precio: St
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Indicador numérico simplificado sin anidación excesiva
+
         Box(
             modifier = Modifier
                 .size(36.dp)

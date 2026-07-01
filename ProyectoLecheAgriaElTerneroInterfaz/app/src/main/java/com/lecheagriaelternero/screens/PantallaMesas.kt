@@ -74,7 +74,7 @@ fun PantallaMesas(navController: NavController, viewModel: MenuViewModel) {
                                 viewModel.setMesaSeleccionada(mesa.id)
                                 navController.navigate("toma_orden")
                             },
-                            modifier = Modifier.height(130.dp), // Altura fija para uniformidad total
+                            modifier = Modifier.height(130.dp),
                             colors = CardDefaults.cardColors(containerColor = colorFondo),
                             border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.1f)),
                             shape = RoundedCornerShape(16.dp),
@@ -83,7 +83,7 @@ fun PantallaMesas(navController: NavController, viewModel: MenuViewModel) {
                             Column(
                                 modifier = Modifier.fillMaxSize().padding(12.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center // Centra todo el contenido verticalmente
+                                verticalArrangement = Arrangement.Center
                             ) {
                                 Text(
                                     text = "Mesa ${mesa.numero}",
@@ -98,8 +98,7 @@ fun PantallaMesas(navController: NavController, viewModel: MenuViewModel) {
                                     color = Color.White.copy(alpha = 0.9f),
                                     fontSize = 14.sp
                                 )
-                                
-                                // El consumo se muestra o se reserva el espacio para mantener el tamaño
+
                                 if (!esLibre && mesa.total > 0) {
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Surface(
@@ -115,7 +114,6 @@ fun PantallaMesas(navController: NavController, viewModel: MenuViewModel) {
                                         )
                                     }
                                 } else {
-                                    // Espaciador invisible para mantener la misma altura que las ocupadas
                                     Spacer(modifier = Modifier.height(32.dp))
                                 }
                             }

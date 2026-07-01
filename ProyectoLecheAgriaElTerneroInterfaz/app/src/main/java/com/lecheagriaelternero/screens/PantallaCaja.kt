@@ -123,11 +123,9 @@ fun PantallaCaja(navController: NavController, viewModel: MenuViewModel) {
                                 onCobrar = {
                                     if (!isProcessing) {
                                         isProcessing = true
-                                        // 🛡️ SOLUCIÓN: Pasamos el ID de la ORDEN (que es seguro y existe)
                                         viewModel.cobrarMesa(orden.id, metodoActual)
                                         Toast.makeText(context, "Procesando cobro: ${metodoActual}", Toast.LENGTH_SHORT).show()
 
-                                        // Bloqueamos el botón por 1.5s para evitar doble clic mientras el servidor responde
                                         coroutineScope.launch {
                                             delay(1500)
                                             isProcessing = false
@@ -614,9 +612,9 @@ fun generarReciboPDF(context: Context, orden: OrdenBackend, menuReal: List<Produ
 
         val nombreArchivo = "Factura_Mesa_${orden.mesa?.numero}_Ticket_${orden.id}.pdf"
 
-        // 🛡️ COMPATIBILIDAD UNIVERSAL: Verifica la versión de Android del celular
+
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            // Para Android 10+ (Como tu S25 Ultra)
+
             val resolver = context.contentResolver
             val contentValues = android.content.ContentValues().apply {
                 put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, nombreArchivo)
@@ -635,7 +633,7 @@ fun generarReciboPDF(context: Context, orden: OrdenBackend, menuReal: List<Produ
                 Toast.makeText(context, "Error: El sistema rechazó guardar el archivo", Toast.LENGTH_LONG).show()
             }
         } else {
-            // Para Android 9 o inferior (Tablets o celulares antiguos)
+
             val carpetaDescargas = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
             val archivoFinal = File(carpetaDescargas, nombreArchivo)
             pdfDocument.writeTo(FileOutputStream(archivoFinal))

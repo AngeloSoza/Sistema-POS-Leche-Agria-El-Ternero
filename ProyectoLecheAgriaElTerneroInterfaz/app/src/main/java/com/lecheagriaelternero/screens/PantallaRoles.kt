@@ -2,7 +2,7 @@ package com.lecheagriaelternero.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border // 🛡️ IMPORTACIÓN AÑADIDA AQUÍ
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -25,11 +25,11 @@ import androidx.navigation.NavController
 
 @Composable
 fun PantallaRoles(navController: NavController) {
-    val bgApp = Color(0xFFF4F6F8) // Gris súper claro y moderno
+    val bgApp = Color(0xFFF4F6F8)
     val greenGradient = Brush.verticalGradient(
         colors = listOf(
-            Color(0xFF2E7D32), // Verde esmeralda oscuro
-            Color(0xFF1B5E20)  // Verde bosque profundo
+            Color(0xFF2E7D32),
+            Color(0xFF1B5E20)
         )
     )
 
@@ -37,7 +37,7 @@ fun PantallaRoles(navController: NavController) {
         containerColor = bgApp
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize()) {
-            // Cabecera curva/degradada al fondo
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -46,7 +46,6 @@ fun PantallaRoles(navController: NavController) {
                     .background(greenGradient)
             )
 
-            // Contenido escroleable encima del fondo
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -56,7 +55,6 @@ fun PantallaRoles(navController: NavController) {
             ) {
                 Spacer(modifier = Modifier.height(56.dp))
 
-                // Etiqueta de la marca en la cabecera
                 Surface(
                     color = Color.White.copy(alpha = 0.2f),
                     shape = RoundedCornerShape(50),
@@ -90,7 +88,6 @@ fun PantallaRoles(navController: NavController) {
 
                 Spacer(modifier = Modifier.height(40.dp))
 
-                // Contenedor de las tarjetas (hace el efecto de solapamiento)
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -99,28 +96,28 @@ fun PantallaRoles(navController: NavController) {
                 ) {
                     TarjetaModulo(
                         icono = "📝",
-                        colorPrincipal = Color(0xFF4CAF50), // Verde
+                        colorPrincipal = Color(0xFF4CAF50),
                         titulo = "Meseros",
                         subtitulo = "Tomar órdenes y gestionar mesas"
                     ) { navController.navigate("mesas") }
 
                     TarjetaModulo(
                         icono = "🍳",
-                        colorPrincipal = Color(0xFFFF9800), // Naranja
+                        colorPrincipal = Color(0xFFFF9800),
                         titulo = "Cocina (KDS)",
                         subtitulo = "Monitor de preparación de platillos"
                     ) { navController.navigate("cocina") }
 
                     TarjetaModulo(
                         icono = "💰",
-                        colorPrincipal = Color(0xFF2196F3), // Azul
+                        colorPrincipal = Color(0xFF2196F3),
                         titulo = "Caja Principal",
                         subtitulo = "Cobros, facturación y recibos"
                     ) { navController.navigate("caja") }
 
                     TarjetaModulo(
                         icono = "📊",
-                        colorPrincipal = Color(0xFF9C27B0), // Morado
+                        colorPrincipal = Color(0xFF9C27B0),
                         titulo = "Administración",
                         subtitulo = "Dashboard, arqueos e inventario"
                     ) { navController.navigate("auth_admin") }
@@ -147,7 +144,7 @@ fun TarjetaModulo(
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp) // Sombra pronunciada para dar efecto flotante
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Row(
             modifier = Modifier
@@ -155,7 +152,7 @@ fun TarjetaModulo(
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Diseño de icono concéntrico (Capa externa clara, capa interna brillante)
+
             Box(
                 modifier = Modifier
                     .size(64.dp)
@@ -166,7 +163,7 @@ fun TarjetaModulo(
                     modifier = Modifier
                         .size(48.dp)
                         .background(Color.White, CircleShape)
-                        .padding(4.dp), // Borde blanco interno
+                        .padding(4.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Box(
@@ -182,7 +179,6 @@ fun TarjetaModulo(
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // Textos
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = titulo,
@@ -201,18 +197,17 @@ fun TarjetaModulo(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            // Botón indicador interactivo
             Box(
                 modifier = Modifier
                     .size(40.dp)
                     .background(Color(0xFFF8F9FA), CircleShape)
-                    .border(1.dp, Color(0xFFE5E7EB), CircleShape), // Ya no dará error
+                    .border(1.dp, Color(0xFFE5E7EB), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                     contentDescription = "Entrar",
-                    tint = colorPrincipal, // La flecha hereda el color del módulo
+                    tint = colorPrincipal,
                     modifier = Modifier.size(24.dp)
                 )
             }

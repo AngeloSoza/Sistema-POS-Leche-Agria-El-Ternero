@@ -85,6 +85,7 @@ class MenuViewModel : ViewModel() {
                 // Error silencioso en consola, no rompemos la app
             }
 
+
             // 2. Cargar Menú
             try {
                 val menuCrudo = RetrofitClient.apiService.getMenu()
@@ -187,27 +188,17 @@ class MenuViewModel : ViewModel() {
                     val cantidad = lista.size
                     val originalItem = lista.first()
                     if (originalItem.descripcion.isNotBlank() && originalItem.descripcion != "null") {
-                        "🔴 NUEVO: ${cantidad}x ${originalItem.nombre}\n   ${originalItem.descripcion}"
+                        "⭐ [NUEVO] ${cantidad}x ${originalItem.nombre}\n   ${originalItem.descripcion}"
                     } else {
-                        "🔴 NUEVO: ${cantidad}x ${originalItem.nombre}"
+                        "⭐ [NUEVO] ${cantidad}x ${originalItem.nombre}"
                     }
                 }
 
-                val ordenPrevia = _ordenActivaMesa.value
-                var notasBase = ordenPrevia?.notas ?: ""
-                var notasGenViejas = ""
-
-                if (notasBase.contains("📝 NOTAS GENERALES:")) {
-                    val partes = notasBase.split("📝 NOTAS GENERALES:")
-                    notasBase = partes[0].trim()
-                    notasGenViejas = partes.getOrNull(1)?.trim() ?: ""
-                }
-
                 val notaFinal = buildString {
-                    if (notasBase.isNotBlank()) { append(notasBase); append("\n") }
                     append(detalleNuevos)
-                    val notasGenCombinadas = listOf(notasGenViejas, notas).filter { it.isNotBlank() }.joinToString(" | ")
-                    if (notasGenCombinadas.isNotBlank()) { append("\n\n📝 NOTAS GENERALES: $notasGenCombinadas") }
+                    if (notas.isNotBlank()) {
+                        append("\n\n📝 NOTAS GENERALES: $notas")
+                    }
                 }
 
                 val payload = OrdenPayload(notas = notaFinal.trim(), total = totalCarrito, detalles = emptyList())
@@ -255,10 +246,13 @@ class MenuViewModel : ViewModel() {
         }
     }
 
-    fun cobrarMesa(ordenId: Long, @Suppress("UNUSED_PARAMETER") metodoPago: String) {
+    fun cobrarMesa(ordenId: Long, metodoPago: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                RetrofitClient.apiService.actualizarEstadoOrden("$ordenId", mapOf("estado" to "PAGADO"))
+                RetrofitClient.apiService.actualizarEstadoOrden(
+                    "$ordenId", 
+                    mapOf("estado" to "PAGADO", "metodoPago" to metodoPago)
+                )
                 cargarOrdenes()
                 cargarMesas()
                 cargarEstadisticas()
@@ -291,7 +285,10 @@ class MenuViewModel : ViewModel() {
     fun crearProducto(nuevoProducto: Producto) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                RetrofitClient.apiService.crearProducto(nuevoProducto)
+                // 🛡️ SOLUCIÓN: Para productos nuevos, el ID debe ser nulo para que la DB lo genere (SERIAL)
+                // Si mandamos "" o "0", el backend podría intentar insertarlo literalmente y fallar.
+                val productoParaEnviar = nuevoProducto.copy(id = "")
+                RetrofitClient.apiService.crearProducto(productoParaEnviar)
                 cargarMenu()
             } catch (e: Exception) {
                 _errorState.value = "Error creando producto: ${e.message}"
