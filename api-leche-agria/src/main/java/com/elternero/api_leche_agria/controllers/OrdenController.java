@@ -30,6 +30,10 @@ public class OrdenController {
         String nuevoEstado = body.get("estado");
         orden.setEstado(nuevoEstado);
 
+        if (body.containsKey("metodoPago")) {
+            orden.setMetodoPago(body.get("metodoPago"));
+        }
+
         if ("PAGADO".equals(nuevoEstado)) {
             Mesa mesa = orden.getMesa();
             mesa.setEstado("LIBRE");
@@ -55,10 +59,10 @@ public class OrdenController {
         if (orden.getId() != null) {
             String historial = orden.getNotas() != null ? orden.getNotas() : "";
             historial = historial.replace("⭐ [NUEVO] ", "✅ [ENTREGADO] ");
-            String nuevasConMarca = notasNuevas.replace("- ", "⭐ [NUEVO] - ");
+            String nuevasConMarca = notasNuevas.replace("- ", "⭐ [NUEVO] ");
             orden.setNotas(historial + "\n\n--- ADICIÓN SOLICITADA ---\n" + nuevasConMarca);
         } else {
-            orden.setNotas(notasNuevas.replace("- ", "⭐ [NUEVO] - "));
+            orden.setNotas(notasNuevas.replace("- ", "⭐ [NUEVO] "));
         }
 
         orden.setEstado("PENDIENTE");

@@ -29,4 +29,6 @@ public class Orden {
     private List<DetalleOrden> items;
 
     private Double total = 0.0;
+
+    private String metodoPago;
 }

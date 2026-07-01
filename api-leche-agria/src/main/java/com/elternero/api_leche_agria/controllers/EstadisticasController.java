@@ -24,11 +24,18 @@ public class EstadisticasController {
                 .toList();
 
         double totalVentas = ordenesPagadas.stream().mapToDouble(Orden::getTotal).sum();
+        
+        double ventasTransferencia = ordenesPagadas.stream()
+                .filter(o -> o.getMetodoPago() != null && o.getMetodoPago().startsWith("Transf."))
+                .mapToDouble(Orden::getTotal)
+                .sum();
+
         int tickets = ordenesPagadas.size();
         double promedio = tickets > 0 ? totalVentas / tickets : 0.0;
 
         Map<String, Object> stats = new HashMap<>();
         stats.put("totalVentas", totalVentas);
+        stats.put("ventasTransferencia", ventasTransferencia);
         stats.put("ticketsEmitidos", tickets);
         stats.put("ticketPromedio", promedio);
         stats.put("topProductos", List.of());
