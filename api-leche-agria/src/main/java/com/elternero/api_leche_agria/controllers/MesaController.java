@@ -24,4 +24,4 @@ public class MesaController {
     public Mesa guardarMesa(@RequestBody Mesa mesa) {
         return mesaRepository.save(mesa);
     }
-}
+} 
