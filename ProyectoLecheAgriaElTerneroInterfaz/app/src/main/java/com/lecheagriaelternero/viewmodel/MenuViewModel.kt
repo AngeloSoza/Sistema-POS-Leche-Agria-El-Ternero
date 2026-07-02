@@ -148,6 +148,16 @@ class MenuViewModel : ViewModel() {
         }
     }
 
+    fun cargarEstadisticasPorFecha(fecha: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                _estadisticas.value = RetrofitClient.apiService.getEstadisticasPorFecha(fecha)
+            } catch (_: Exception) {
+                _estadisticas.value = EstadisticasDia()
+            }
+        }
+    }
+
     fun cargarOrdenes() {
         viewModelScope.launch(Dispatchers.IO) {
             try { _ordenesActivas.value = RetrofitClient.apiService.getOrdenes() } catch (_: Exception) { }

@@ -14,6 +14,9 @@ interface ApiService {
     @GET("/api/estadisticas/hoy")
     suspend fun getEstadisticasDelDia(): EstadisticasDia
 
+    @GET("/api/estadisticas/fecha/{fecha}")
+    suspend fun getEstadisticasPorFecha(@Path("fecha") fecha: String): EstadisticasDia
+
     @GET("/api/ordenes")
     suspend fun getOrdenes(): List<OrdenBackend>
 
@@ -41,11 +44,27 @@ interface ApiService {
 
 
 object RetrofitClient {
-    private const val BASE_URL = "http://192.168.0.18:8080"
 
-    val apiService: ApiService by lazy {
-        Retrofit.Builder()
-            .baseUrl(BASE_URL)
+    var currentIp: String = "192.168.0.18"
+    
+    private var _apiService: ApiService? = null
+
+    val apiService: ApiService
+        get() {
+            if (_apiService == null) {
+                _apiService = createRetrofit("http://$currentIp:8080")
+            }
+            return _apiService!!
+        }
+
+    fun updateIp(newIp: String) {
+        currentIp = newIp.trim()
+        _apiService = createRetrofit("http://$currentIp:8080")
+    }
+
+    private fun createRetrofit(baseUrl: String): ApiService {
+        return Retrofit.Builder()
+            .baseUrl(baseUrl)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(ApiService::class.java)
