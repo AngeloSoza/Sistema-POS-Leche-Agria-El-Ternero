@@ -14,6 +14,9 @@ interface ApiService {
     @GET("/api/estadisticas/hoy")
     suspend fun getEstadisticasDelDia(): EstadisticasDia
 
+    @GET("/api/estadisticas/fecha/{fecha}")
+    suspend fun getEstadisticasPorFecha(@Path("fecha") fecha: String): EstadisticasDia
+
     @GET("/api/ordenes")
     suspend fun getOrdenes(): List<OrdenBackend>
 

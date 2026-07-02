@@ -13,6 +13,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.rounded.ReceiptLong
@@ -65,7 +66,12 @@ fun PantallaAdminDashboard(navController: NavController, viewModel: MenuViewMode
     val sumaBase = ventasTotalesDia + fondoInicial
     val efectivoEsperadoEnCaja = sumaBase - ventasPedidosYa - transferenciasDia - totalGastos
 
-    val fechaActual = remember { SimpleDateFormat("EEEE, dd 'de' MMMM", Locale.forLanguageTag("es-NI")).format(Date()).replaceFirstChar { it.uppercase() } }
+    var fechaSeleccionadaUnix by remember { mutableStateOf(System.currentTimeMillis()) }
+    val fechaFormateada = remember(fechaSeleccionadaUnix) {
+        SimpleDateFormat("EEEE, dd 'de' MMMM", Locale.forLanguageTag("es-NI"))
+            .format(Date(fechaSeleccionadaUnix))
+            .replaceFirstChar { it.uppercase() }
+    }
 
     val bgApp = remember { Color(0xFFF8F9FA) }
     val textPrimary = remember { Color(0xFF1A1C1E) }
@@ -78,6 +84,38 @@ fun PantallaAdminDashboard(navController: NavController, viewModel: MenuViewMode
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = textPrimary)
+                    }
+                },
+                actions = {
+                    if (tabSeleccionado == 1) {
+                        var showDatePicker by remember { mutableStateOf(false) }
+                        IconButton(onClick = { showDatePicker = true }) {
+                            Icon(Icons.Default.CalendarMonth, contentDescription = "Seleccionar Fecha", tint = textPrimary)
+                        }
+                        
+                        if (showDatePicker) {
+                            val datePickerState = rememberDatePickerState(
+                                initialSelectedDateMillis = fechaSeleccionadaUnix
+                            )
+                            DatePickerDialog(
+                                onDismissRequest = { showDatePicker = false },
+                                confirmButton = {
+                                    TextButton(onClick = {
+                                        datePickerState.selectedDateMillis?.let {
+                                            fechaSeleccionadaUnix = it
+                                            val apiFecha = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(it))
+                                            viewModel.cargarEstadisticasPorFecha(apiFecha)
+                                        }
+                                        showDatePicker = false
+                                    }) { Text("Aceptar") }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showDatePicker = false }) { Text("Cancelar") }
+                                }
+                            ) {
+                                DatePicker(state = datePickerState)
+                            }
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = bgApp)
@@ -112,9 +150,9 @@ fun PantallaAdminDashboard(navController: NavController, viewModel: MenuViewMode
 
             when (tabSeleccionado) {
                 0 -> VistaArqueoCaja(
-                    fechaActual, ventasLocal, fondoInicial, ventasPedidosYa, ventasTotalesDia, transferenciasDia, gastosDelDia, efectivoEsperadoEnCaja, viewModel
+                    fechaFormateada, ventasLocal, fondoInicial, ventasPedidosYa, ventasTotalesDia, transferenciasDia, gastosDelDia, efectivoEsperadoEnCaja, viewModel
                 )
-                1 -> VistaAnaliticasProfesional(fechaActual, ventasLocal, ventasPedidosYa, ordenesPagadasHoy, menuReal)
+                1 -> VistaAnaliticasProfesional(fechaFormateada, estadisticas.totalVentas - estadisticas.ventasTransferencia, 0.0, ordenesPagadasHoy, menuReal)
                 2 -> VistaGestorInventario(menuReal, viewModel)
             }
         }
@@ -325,8 +363,9 @@ fun VistaArqueoCaja(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VistaAnaliticasProfesional(fecha: String, ventasLocal: Double, ventasPedidosYa: Double, ordenesPagadas: List<OrdenBackend>, menuReal: List<Producto>) {
-    val totalGlobal = ventasLocal + ventasPedidosYa
+fun VistaAnaliticasProfesional(fecha: String, ventasLocal: Double, ventasPedidosYa: Double, ordenesPagadas: List<OrdenBackend>, menuReal: List<Producto>, totalManual: Double = 0.0) {
+    val totalCalculado = ventasLocal + ventasPedidosYa
+    val totalGlobal = if (totalManual > 0) totalManual else totalCalculado
     var verTicketsDialog by remember { mutableStateOf(false) }
     var ordenDetalle by remember { mutableStateOf<OrdenBackend?>(null) }
     val context = LocalContext.current
