@@ -91,6 +91,45 @@ fun PantallaAuthAdmin(navController: NavController) {
             ) {
                 Text("Desbloquear", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
+
+            var mostrarConfigIp by remember { mutableStateOf(false) }
+            
+            TextButton(
+                onClick = { mostrarConfigIp = true },
+                modifier = Modifier.padding(top = 40.dp)
+            ) {
+                Text("⚙️ Configuración de Red (Solo Presentación)", color = Color.Gray, fontSize = 12.sp)
+            }
+
+            if (mostrarConfigIp) {
+                var nuevaIp by remember { mutableStateOf(com.lecheagriaelternero.network.RetrofitClient.currentIp) }
+                AlertDialog(
+                    onDismissRequest = { mostrarConfigIp = false },
+                    title = { Text("Configurar IP del Servidor", fontWeight = FontWeight.Bold) },
+                    text = {
+                        Column {
+                            Text("Si cambias de Wi-Fi, tu IP cambiará. Escríbela aquí:", fontSize = 14.sp)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = nuevaIp,
+                                onValueChange = { nuevaIp = it },
+                                label = { Text("Ej: 192.168.1.50") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                            )
+                            Text("Puerto actual: 8080", fontSize = 11.sp, color = Color.Gray)
+                        }
+                    },
+                    confirmButton = {
+                        Button(onClick = {
+                            com.lecheagriaelternero.network.RetrofitClient.updateIp(nuevaIp)
+                            Toast.makeText(context, "IP Actualizada a: $nuevaIp", Toast.LENGTH_SHORT).show()
+                            mostrarConfigIp = false
+                        }) { Text("Guardar y Reconectar") }
+                    },
+                    dismissButton = { TextButton(onClick = { mostrarConfigIp = false }) { Text("Cancelar") } }
+                )
+            }
         }
     }
 }
