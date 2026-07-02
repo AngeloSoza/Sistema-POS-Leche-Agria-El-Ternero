@@ -5,6 +5,7 @@ import com.elternero.api_leche_agria.repositories.OrdenRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,8 +20,16 @@ public class EstadisticasController {
 
     @GetMapping("/hoy")
     public Map<String, Object> getEstadisticasHoy() {
+        return getEstadisticasPorFecha(LocalDate.now().toString());
+    }
+
+    @GetMapping("/fecha/{fechaStr}")
+    public Map<String, Object> getEstadisticasPorFecha(@PathVariable String fechaStr) {
+        LocalDate fecha = LocalDate.parse(fechaStr);
+        
         List<Orden> ordenesPagadas = ordenRepository.findAll().stream()
                 .filter(o -> "PAGADO".equals(o.getEstado()))
+                .filter(o -> o.getFecha() != null && o.getFecha().toLocalDate().equals(fecha))
                 .toList();
 
         double totalVentas = ordenesPagadas.stream().mapToDouble(Orden::getTotal).sum();
